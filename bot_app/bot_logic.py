@@ -21,6 +21,7 @@ from .config import (
     VALID_SLOTS,
     WEEKDAY_NAMES,
     WEEKDAY_NAMES_SHORT,
+    BOOKING_OPEN_HOUR,
     is_valid_slot,
 )
 
@@ -217,17 +218,17 @@ def check_booking_limits(user, dt: date) -> tuple:
 
     # Проверка: нельзя записаться ранее 9:00 понедельника
     week_start = get_current_week_start()
-    monday_9am = datetime.combine(week_start, datetime.min.time()).replace(hour=9, minute=0)
+    monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
     now = datetime.now()
 
-    if now < monday_9am:
-        time_left = monday_9am - now
+    if now < monday_open:
+        time_left = monday_open - now
         hours = time_left.seconds // 3600
         minutes = (time_left.seconds % 3600) // 60
         return False, (
-            f"❌ Запись на неделю открывается в *понедельник в 9:00*!\n"
+            f"❌ Запись на неделю открывается в *понедельник в {BOOKING_OPEN_HOUR}:00*!\n"
             f"⏳ Осталось: {hours} ч {minutes} мин\n\n"
-            f"📅 Следующая неделя откроется: {week_start.strftime('%d.%m')} в 9:00"
+            f"📅 Следующая неделя откроется: {week_start.strftime('%d.%m')} в {BOOKING_OPEN_HOUR}:00"
         )
 
     # Проверка: не более 1 записи в день
@@ -361,7 +362,7 @@ def help_command(message: Message):
 
 📌 Количество мест: 2 человека на слот
 📌 Ограничения:
-  • Запись открывается в понедельник в 9:00
+  • Запись открывается в понедельник в {BOOKING_OPEN_HOUR}:00
   • Нельзя записаться на прошлое
   • 1 запись в день
   • 3 записи в неделю
@@ -384,7 +385,7 @@ def schedule_command(message: Message):
     slots = get_slots_for_week(week_start, show_past=False)
 
     if not slots:
-        text = f"📅 На неделе {week_range} больше нет доступных слотов.\n\nСледующая неделя откроется в понедельник в 9:00."
+        text = f"📅 На неделе {week_range} больше нет доступных слотов.\n\nСледующая неделя откроется в понедельник в {BOOKING_OPEN_HOUR}:00."
         keyboard = get_navigation_keyboard()
         bot.send_message(
             message.chat.id,
@@ -409,11 +410,11 @@ def schedule_command(message: Message):
         text += "\n"
 
     # Информация о времени открытия записи
-    monday_9am = datetime.combine(week_start, datetime.min.time()).replace(hour=9, minute=0)
+    monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
     now = datetime.now()
 
-    if now < monday_9am:
-        text += f"\n⏳ Запись откроется в *понедельник в 9:00*"
+    if now < monday_open:
+        text += f"\n⏳ Запись откроется в *понедельник в {BOOKING_OPEN_HOUR}:00*"
     else:
         text += f"\n✅ Запись открыта! Используй кнопку ниже."
 
@@ -446,18 +447,18 @@ def book_command(message: Message):
     slots = get_slots_for_week(week_start, show_past=False)
 
     # Проверка: можно ли записываться (после 9:00 понедельника)
-    monday_9am = datetime.combine(week_start, datetime.min.time()).replace(hour=9, minute=0)
+    monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
     now = datetime.now()
 
-    if now < monday_9am:
-        time_left = monday_9am - now
+    if now < monday_open:
+        time_left = monday_open - now
         hours = time_left.seconds // 3600
         minutes = (time_left.seconds % 3600) // 60
 
         text = (
-            f"⏳ Запись на неделю {week_range} откроется в *понедельник в 9:00*!\n\n"
+            f"⏳ Запись на неделю {week_range} откроется в *понедельник в {BOOKING_OPEN_HOUR}:00*!\n\n"
             f"Осталось: {hours} ч {minutes} мин\n\n"
-            f"📅 Следующая неделя откроется: {week_start.strftime('%d.%m')} в 9:00"
+            f"📅 Следующая неделя откроется: {week_start.strftime('%d.%m')} в {BOOKING_OPEN_HOUR}:00"
         )
         keyboard = get_navigation_keyboard()
         bot.send_message(
@@ -470,7 +471,7 @@ def book_command(message: Message):
 
     # Исключаем прошедшие даты
     today = date.today()
-    available = [s for s in slots if s['is_available'] and s['date'] >= today]
+    available = [s for s in slots if s['is_available']]
 
     if not available:
         text = f"😞 На неделе {week_range} нет свободных мест."
