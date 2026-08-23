@@ -91,18 +91,29 @@ def get_user_from_callback(call: CallbackQuery):
     return user
 
 
-def get_slots_for_week(week_start: date = None) -> list:
-    """Возвращает все слоты на неделю с информацией о заполненности"""
+def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list:
+    """
+    Возвращает все слоты на неделю с информацией о заполненности
+
+    Args:
+        week_start: дата понедельника
+        show_past: показывать ли прошедшие даты (по умолчанию False)
+    """
     if week_start is None:
         week_start = get_current_week_start()
 
     result = []
+    today = date.today()
 
     for day, time_obj in VALID_SLOTS:
         days_ahead = day - week_start.weekday()
         if days_ahead < 0:
             days_ahead += 7
         dt = week_start + timedelta(days=days_ahead)
+
+        # Пропускаем прошедшие даты, если show_past=False
+        if not show_past and dt < today:
+            continue
 
         booked_count = Booking.objects.filter(
             date=dt,
@@ -153,7 +164,10 @@ def format_schedule_text(week_start: date = None) -> str:
         week_start = get_current_week_start()
 
     week_range = get_week_range(week_start)
-    slots = get_slots_for_week(week_start)
+
+    # Для уведомлений показываем ВСЕ слоты (включая прошедшие)
+    # чтобы было понятно, что неделя закрывается
+    slots = get_slots_for_week(week_start, show_past=True)
 
     grouped = {}
     for slot in slots:
@@ -365,7 +379,19 @@ def schedule_command(message: Message):
     """Показывает расписание на текущую неделю с кнопкой записи"""
     week_start = get_current_week_start()
     week_range = get_week_range(week_start)
-    slots = get_slots_for_week(week_start)
+
+    # Показываем только будущие и сегодняшние слоты
+    slots = get_slots_for_week(week_start, show_past=False)
+
+    if not slots:
+        text = f"📅 На неделе {week_range} больше нет доступных слотов.\n\nСледующая неделя откроется в понедельник в 9:00."
+        keyboard = get_navigation_keyboard()
+        bot.send_message(
+            message.chat.id,
+            text,
+            reply_markup=keyboard
+        )
+        return
 
     grouped = {}
     for slot in slots:
@@ -382,7 +408,7 @@ def schedule_command(message: Message):
             text += f"  {format_slot(slot)}\n"
         text += "\n"
 
-    # Добавляем информацию о времени открытия записи
+    # Информация о времени открытия записи
     monday_9am = datetime.combine(week_start, datetime.min.time()).replace(hour=9, minute=0)
     now = datetime.now()
 
@@ -417,7 +443,7 @@ def book_command(message: Message):
 
     week_start = get_current_week_start()
     week_range = get_week_range(week_start)
-    slots = get_slots_for_week(week_start)
+    slots = get_slots_for_week(week_start, show_past=False)
 
     # Проверка: можно ли записываться (после 9:00 понедельника)
     monday_9am = datetime.combine(week_start, datetime.min.time()).replace(hour=9, minute=0)
