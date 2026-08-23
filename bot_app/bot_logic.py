@@ -205,7 +205,7 @@ def check_booking_limits(user, dt: date) -> tuple:
     """
     Проверяет ограничения для пользователя:
     - Нельзя записаться на прошлое
-    - Нельзя записаться ранее 9:00 понедельника
+    - Нельзя записаться ранее BOOKING_OPEN_HOUR понедельника
     - Не более 1 записи в день
     - Не более 3 записей в неделю
 
@@ -216,7 +216,7 @@ def check_booking_limits(user, dt: date) -> tuple:
     if dt < today:
         return False, "❌ Нельзя записаться на прошедшую дату! Выбери будущую дату."
 
-    # Проверка: нельзя записаться ранее 9:00 понедельника
+    # Проверка: нельзя записаться ранее BOOKING_OPEN_HOUR понедельника
     week_start = get_current_week_start()
     monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
     now = datetime.now()
@@ -350,7 +350,7 @@ def start_command(message: Message):
 @bot.message_handler(commands=['help'])
 def help_command(message: Message):
     """Показывает список доступных команд"""
-    text = """
+    text = f"""
 🤖 Доступные команды:
 
 /start — регистрация в системе
@@ -446,7 +446,7 @@ def book_command(message: Message):
     week_range = get_week_range(week_start)
     slots = get_slots_for_week(week_start, show_past=False)
 
-    # Проверка: можно ли записываться (после 9:00 понедельника)
+    # Проверка: можно ли записываться (после BOOKING_OPEN_HOUR понедельника)
     monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
     now = datetime.now()
 
@@ -655,15 +655,25 @@ def confirm_booking_callback(call: CallbackQuery):
 
 @bot.message_handler(commands=['my_bookings'])
 def my_bookings_command(message: Message):
-    """Показывает все активные записи пользователя"""
+    """Показывает активные записи пользователя на текущую неделю"""
     user = get_user_from_message(message)
     if not user:
         return
 
-    bookings = Booking.objects.filter(user=user, is_active=True).order_by('date', 'time')
+    # Получаем начало и конец текущей недели
+    week_start = get_current_week_start()
+    week_end = week_start + timedelta(days=6)
+
+    # Фильтруем: только активные и только на текущей неделе
+    bookings = Booking.objects.filter(
+        user=user,
+        is_active=True,
+        date__gte=week_start,
+        date__lte=week_end
+    ).order_by('date', 'time')
 
     if not bookings:
-        text = "📭 У тебя нет активных записей."
+        text = "📭 У тебя нет активных записей на текущую неделю."
         keyboard = get_navigation_keyboard()
         bot.send_message(
             message.chat.id,
@@ -672,7 +682,7 @@ def my_bookings_command(message: Message):
         )
         return
 
-    text = "📋 Твои записи:\n\n"
+    text = f"📋 Твои записи на неделю {get_week_range(week_start)}:\n\n"
     for booking in bookings:
         day_name = WEEKDAY_NAMES[booking.date.weekday()]
         text += (
@@ -698,14 +708,23 @@ def my_bookings_command(message: Message):
 
 @bot.message_handler(commands=['cancel'])
 def cancel_command(message: Message):
-    """Быстрая отмена последней записи"""
+    """Быстрая отмена последней записи на текущей неделе"""
     user = get_user_from_message(message)
     if not user:
         return
 
-    booking = Booking.objects.filter(user=user, is_active=True).order_by('-created_at').first()
+    week_start = get_current_week_start()
+    week_end = week_start + timedelta(days=6)
+
+    booking = Booking.objects.filter(
+        user=user,
+        is_active=True,
+        date__gte=week_start,
+        date__lte=week_end
+    ).order_by('-created_at').first()
+
     if not booking:
-        text = "📭 У тебя нет активных записей."
+        text = "📭 У тебя нет активных записей на текущую неделю."
         keyboard = get_navigation_keyboard()
         bot.send_message(
             message.chat.id,
@@ -737,19 +756,27 @@ def cancel_command(message: Message):
 
 @bot.callback_query_handler(func=lambda call: call.data == "cancel_booking")
 def cancel_booking_callback(call: CallbackQuery):
-    """Начинает процесс отмены записи"""
+    """Начинает процесс отмены записи на текущей неделе"""
     bot.answer_callback_query(call.id)
 
     user = get_user_from_callback(call)
     if not user:
         return
 
-    bookings = Booking.objects.filter(user=user, is_active=True).order_by('date', 'time')
+    week_start = get_current_week_start()
+    week_end = week_start + timedelta(days=6)
+
+    bookings = Booking.objects.filter(
+        user=user,
+        is_active=True,
+        date__gte=week_start,
+        date__lte=week_end
+    ).order_by('date', 'time')
 
     if not bookings:
         keyboard = get_navigation_keyboard()
         bot.edit_message_text(
-            "📭 У тебя нет активных записей для отмены.",
+            "📭 У тебя нет активных записей на текущую неделю.",
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=keyboard
@@ -829,7 +856,7 @@ def cancel_cancel_callback(call: CallbackQuery):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("cancel_"))
 def confirm_cancel_callback(call: CallbackQuery):
-    """Подтверждает отмену конкретной записи"""
+    """Подтверждает отмену конкретной записи на текущей неделе"""
     bot.answer_callback_query(call.id)
 
     user = get_user_from_callback(call)
@@ -842,6 +869,20 @@ def confirm_cancel_callback(call: CallbackQuery):
         time_obj = datetime.strptime(time_str, '%H%M').time()
     except (ValueError, IndexError):
         bot.send_message(call.message.chat.id, "❌ Ошибка! Попробуй снова.")
+        return
+
+    week_start = get_current_week_start()
+    week_end = week_start + timedelta(days=6)
+
+    # Проверяем, что запись на текущей неделе
+    if dt < week_start or dt > week_end:
+        keyboard = get_navigation_keyboard()
+        bot.edit_message_text(
+            "❌ Эта запись не на текущей неделе.",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=keyboard
+        )
         return
 
     booking = Booking.objects.filter(
