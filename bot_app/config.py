@@ -14,16 +14,19 @@ FRIDAY = 4
 SATURDAY = 5
 SUNDAY = 6
 
-SLOT_1 = time(11, 10)
-SLOT_2 = time(11, 30)
-SLOT_3 = time(12, 0)
-SLOT_4 = time(17, 10)
+SLOTS = [
+#    time(11, 10),
+    time(11, 30),
+    time(12, 0),
+    time(17, 10),
+]
 
+# Используем срезы для разных дней
 SLOTS_BY_DAY = {
-    TUESDAY: [SLOT_1, SLOT_2, SLOT_3, SLOT_4],
-    WEDNESDAY: [SLOT_1, SLOT_2, SLOT_3, SLOT_4],
-    THURSDAY: [SLOT_1, SLOT_2, SLOT_3, SLOT_4],
-    FRIDAY: [SLOT_1, SLOT_2, SLOT_3],
+    TUESDAY: SLOTS,           # все 4 слота
+    WEDNESDAY: SLOTS,         # все 4 слота
+    THURSDAY: SLOTS,          # все 4 слота
+    FRIDAY: SLOTS[:2],        # первые 3 слота (без 17:10)
 }
 
 # Генерируем плоский список всех слотов для быстрых проверок
@@ -54,7 +57,7 @@ WEEKDAY_NAMES_SHORT = {
     SATURDAY: 'Сб',
     SUNDAY: 'Вс',
 }
-BOOKING_OPEN_HOUR = 0
+BOOKING_OPEN_HOUR = 9
 
 # ============================================
 # ФУНКЦИИ ДЛЯ РАБОТЫ С КОНФИГУРАЦИЕЙ

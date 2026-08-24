@@ -11,7 +11,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key')
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['DimasikPython.pythonanywhere.com'] if not DEBUG else []
+ALLOWED_HOSTS = ['DimasikPython.pythonanywhere.com', '127.0.0.1'] if not DEBUG else []
 
 # Application definition
 
