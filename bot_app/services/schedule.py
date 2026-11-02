@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from django.utils import timezone
 
 from bot_app.models import Booking
 from bot_app.core import BOT_LINK
@@ -9,7 +10,7 @@ from bot_app.config import (
 
 def get_current_week_start() -> date:
     """Возвращает дату понедельника текущей недели"""
-    today = date.today()
+    today = timezone.localdate()
     return today - timedelta(days=today.weekday())
 
 
@@ -78,7 +79,7 @@ def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list
         week_start = get_current_week_start()
 
     result = []
-    today = date.today()
+    today = timezone.localdate()
 
     for day, time_obj in VALID_SLOTS:
         days_ahead = day - week_start.weekday()

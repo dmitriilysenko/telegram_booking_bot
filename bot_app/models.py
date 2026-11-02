@@ -36,11 +36,11 @@ class Booking(models.Model):
         verbose_name = "Запись"
         verbose_name_plural = "Записи"
         # Защита от дублей: пользователь не может записаться дважды на одно время
-        constraints = [
+        constraints = (
             models.UniqueConstraint(
                 fields=['user', 'date', 'time'],
                 condition=models.Q(is_active=True),
                 name='unique_active_booking'
-            )
-        ]
-        ordering = ['date', 'time']
+            ),
+        )
+        ordering = ('date', 'time')

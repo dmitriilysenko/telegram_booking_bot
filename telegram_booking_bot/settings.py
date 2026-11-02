@@ -7,11 +7,13 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key')
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError('SECRET_KEY не задан в переменных окружения')
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['DimasikPython.pythonanywhere.com', '127.0.0.1'] if not DEBUG else []
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # Application definition
 
@@ -61,8 +63,12 @@ WSGI_APPLICATION = 'telegram_booking_bot.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB', 'booking'),
+        'USER': os.getenv('POSTGRES_USER', 'booking'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'db'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -101,7 +107,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -113,14 +119,8 @@ BOT_LINK = os.getenv('BOT_LINK')
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
-
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
 
 LOGGING = {
     'version': 1,
@@ -130,26 +130,22 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {message}',
             'style': '{',
         },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-            'level': 'DEBUG',  # ← показывать всё
+            'formatter': 'verbose',
+            'level': 'INFO',
         },
     },
     'root': {
         'handlers': ['console'],
-        'level': 'DEBUG',  # ← показывать всё
+        'level': 'INFO',
     },
     'loggers': {
         'bot_app': {
             'handlers': ['console'],
-            'level': 'DEBUG',  # ← показывать всё
+            'level': 'INFO',
             'propagate': False,
         },
     },

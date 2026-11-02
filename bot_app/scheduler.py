@@ -2,7 +2,7 @@
 Планировщик уведомлений на apscheduler с хранением в БД
 """
 
-from datetime import datetime
+from django.utils import timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from django_apscheduler.jobstores import DjangoJobStore
@@ -17,7 +17,7 @@ def send_reminder(slot_hour: int, slot_minute: int):
     if not GROUP_CHAT_ID:
         return
 
-    today = datetime.now().date()
+    today = timezone.localdate()
 
     bookings = Booking.objects.filter(
         date=today,

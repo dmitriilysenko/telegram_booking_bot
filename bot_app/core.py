@@ -16,7 +16,7 @@ def get_bot():
         raise ImproperlyConfigured('BOT_TOKEN не найден в .env')
     return TeleBot(token)
 
-bot = TeleBot(settings.BOT_TOKEN)
+bot = get_bot()
 
 GROUP_CHAT_ID = getattr(settings, 'GROUP_CHAT_ID', None)
 BOT_LINK = getattr(settings, 'BOT_LINK', '')

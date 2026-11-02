@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from django.utils import timezone
 from telebot.types import (
     Message,
     InlineKeyboardMarkup,
@@ -12,6 +13,7 @@ from bot_app.services.schedule import (
 get_week_range, get_slots_for_week, get_current_week_start, format_slot
 )
 from .navigation import get_navigation_keyboard
+
 
 def get_user_by_telegram_id(telegram_id: int):
     """Получает пользователя из БД по telegram_id"""
@@ -124,7 +126,7 @@ def schedule_command(message: Message):
 
     # Информация о времени открытия записи
     monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
-    now = datetime.now()
+    now = timezone.localtime(timezone.now())
 
     if now < monday_open:
         text += f"\n⏳ Запись откроется в *понедельник в {BOOKING_OPEN_HOUR}:00*"
@@ -161,7 +163,7 @@ def book_command(message: Message):
 
     # Проверка: можно ли записываться (после BOOKING_OPEN_HOUR понедельника)
     monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
-    now = datetime.now()
+    now = timezone.localtime(timezone.now())
 
     if now < monday_open:
         time_left = monday_open - now

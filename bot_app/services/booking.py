@@ -1,10 +1,10 @@
 from datetime import date, datetime, timedelta
-
+from django.utils import timezone
 from bot_app.models import Booking
-from bot_app.core import bot, logger, GROUP_CHAT_ID
 from bot_app.config import WEEKDAY_NAMES, BOOKING_OPEN_HOUR
 from .schedule import get_current_week_start
 from .schedule import format_schedule_text
+from bot_app.core import logger, GROUP_CHAT_ID, bot
 
 
 def check_booking_limits(user, dt: date) -> tuple:
@@ -18,14 +18,14 @@ def check_booking_limits(user, dt: date) -> tuple:
     Возвращает (is_allowed, message)
     """
     # Проверка: нельзя записаться на прошлое
-    today = date.today()
+    today = timezone.localdate()
     if dt < today:
         return False, "❌ Нельзя записаться на прошедшую дату! Выбери будущую дату."
 
     # Проверка: нельзя записаться ранее BOOKING_OPEN_HOUR понедельника
     week_start = get_current_week_start()
     monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
-    now = datetime.now()
+    now = timezone.localtime(timezone.now())
 
     if now < monday_open:
         time_left = monday_open - now
