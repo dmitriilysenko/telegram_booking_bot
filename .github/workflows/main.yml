@@ -61,3 +61,19 @@ jobs:
             sudo docker compose -f docker-compose.production.yml run --rm backend python manage.py migrate
             sudo docker compose -f docker-compose.production.yml up -d
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
+  send_message:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Send Telegram message
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.BOT_TOKEN }}
+          message: |
+            ✅ Деплой Booking Bot успешно выполнен!
+
+            Автор: ${{ github.actor }}
+            Коммит: ${{ github.event.head_commit.message }}
+            Ссылка: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+            Время: ${{ github.event.head_commit.timestamp }}
