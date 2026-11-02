@@ -1,0 +1,58 @@
+volumes:
+  pg_data:
+  static:
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    env_file: .env
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  migrate:
+    image: ${DOCKER_LOGIN}/booking_backend:latest
+    build: .
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+  backend:
+    image: ${DOCKER_LOGIN}/booking_backend:latest
+    restart: always
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    volumes:
+      - static:/app/staticfiles
+
+  bot:
+    image: ${DOCKER_LOGIN}/booking_backend:latest
+    restart: always
+    env_file: .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    command: python manage.py runbot
+
+  gateway:
+    image: nginx:1.25.4-alpine
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - static:/staticfiles
+      - ./nginx.conf:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      - NGINX_ENVSUBST_FILTER=SERVER_NAME
+    depends_on:
+      - backend

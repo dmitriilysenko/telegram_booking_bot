@@ -12,7 +12,7 @@ from bot_app.config import WEEKDAY_NAMES, BOOKING_OPEN_HOUR
 from bot_app.services.schedule import (
 get_week_range, get_slots_for_week, get_current_week_start, format_slot
 )
-from .navigation import get_navigation_keyboard
+from bot_app.keyboards import get_navigation_keyboard
 
 
 def get_user_by_telegram_id(telegram_id: int):
@@ -125,7 +125,11 @@ def schedule_command(message: Message):
         text += "\n"
 
     # Информация о времени открытия записи
-    monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
+    monday_open = timezone.make_aware(
+        datetime.combine(week_start, datetime.min.time()).replace(
+            hour=BOOKING_OPEN_HOUR, minute=0
+        )
+    )
     now = timezone.localtime(timezone.now())
 
     if now < monday_open:
@@ -162,7 +166,11 @@ def book_command(message: Message):
     slots = get_slots_for_week(week_start, show_past=False)
 
     # Проверка: можно ли записываться (после BOOKING_OPEN_HOUR понедельника)
-    monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
+    monday_open = timezone.make_aware(
+        datetime.combine(week_start, datetime.min.time()).replace(
+            hour=BOOKING_OPEN_HOUR, minute=0
+        )
+    )
     now = timezone.localtime(timezone.now())
 
     if now < monday_open:

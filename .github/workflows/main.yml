@@ -1,0 +1,63 @@
+name: Booking Bot workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_LOGIN }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_LOGIN }}/booking_backend:latest
+
+  deploy:
+    needs: build_and_push
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.production.yml,nginx.conf"
+          target: "booking"
+          strip_components: 0
+      - uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd booking
+            cat > .env << EOF
+            SECRET_KEY=${{ secrets.SECRET_KEY }}
+            BOT_TOKEN=${{ secrets.BOT_TOKEN }}
+            GROUP_CHAT_ID=${{ secrets.GROUP_CHAT_ID }}
+            BOT_LINK=${{ secrets.BOT_LINK }}
+            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            DB_HOST=db
+            DB_PORT=5432
+            DEBUG=False
+            ALLOWED_HOSTS=${{ secrets.HOST }},${{ secrets.DOMAIN }}
+            SERVER_NAME=${{ secrets.DOMAIN }}
+            DOCKER_LOGIN=${{ secrets.DOCKER_LOGIN }}
+            EOF
+            sudo docker compose -f docker-compose.production.yml pull
+            sudo docker compose -f docker-compose.production.yml down
+            sudo docker compose -f docker-compose.production.yml run --rm backend python manage.py migrate
+            sudo docker compose -f docker-compose.production.yml up -d
+            sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput

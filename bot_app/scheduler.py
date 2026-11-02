@@ -81,3 +81,4 @@ def start_scheduler():
     jobs = scheduler.get_jobs()
     for job in jobs:
         logger.info(f"  📅 {job.id} — {job.trigger}")
+    return scheduler

@@ -37,4 +37,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('🤖 Бот запущен...'))
         self.stdout.write('📌 Нажми Ctrl+C для остановки')
 
-        run_bot()
+        try:
+            run_bot()
+        except KeyboardInterrupt:
+            self.stdout.write(self.style.WARNING('🛑 Бот остановлен'))

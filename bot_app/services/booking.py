@@ -24,7 +24,11 @@ def check_booking_limits(user, dt: date) -> tuple:
 
     # Проверка: нельзя записаться ранее BOOKING_OPEN_HOUR понедельника
     week_start = get_current_week_start()
-    monday_open = datetime.combine(week_start, datetime.min.time()).replace(hour=BOOKING_OPEN_HOUR, minute=0)
+    monday_open = timezone.make_aware(
+        datetime.combine(week_start, datetime.min.time()).replace(
+            hour=BOOKING_OPEN_HOUR, minute=0
+        )
+    )
     now = timezone.localtime(timezone.now())
 
     if now < monday_open:
