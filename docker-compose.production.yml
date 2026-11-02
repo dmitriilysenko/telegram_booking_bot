@@ -16,11 +16,12 @@ services:
       retries: 5
   migrate:
     image: ${DOCKER_LOGIN}/booking_backend:latest
-    build: .
     env_file: .env
     depends_on:
       db:
         condition: service_healthy
+    command: python manage.py migrate
+    restart: "no"
   backend:
     image: ${DOCKER_LOGIN}/booking_backend:latest
     restart: always
