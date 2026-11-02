@@ -1,16 +1,18 @@
 # check_connection.py
+import os
 import requests
 import socket
+from dotenv import load_dotenv
 
-TOKEN = "8496786256:AAEFyL2YRx8ST_P5-6yCNsViSc81VBL8Gzw"
-url = f"https://api.telegram.org/bot{TOKEN}/getMe"
+load_dotenv()
+token = os.getenv('BOT_TOKEN')
+if not token:
+    raise SystemExit('BOT_TOKEN не задан')
+url = f"https://api.telegram.org/bot{token}/getMe"
 
 try:
-    print("Проверяем DNS...")
     socket.gethostbyname('api.telegram.org')
     print("✅ DNS работает")
-
-    print("Проверяем подключение через requests...")
     response = requests.get(url, timeout=10)
     print(f"✅ Статус: {response.status_code}")
     print(f"Ответ: {response.json()}")

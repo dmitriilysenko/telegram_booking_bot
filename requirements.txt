@@ -1,11 +1,13 @@
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.3
 aiosignal==1.4.0
+APScheduler==3.11.3
 asgiref==3.12.1
 attrs==26.1.0
 certifi==2026.7.22
 charset-normalizer==3.4.9
 Django==6.1
+django-apscheduler==0.7.0
 frozenlist==1.8.0
 idna==3.18
 multidict==6.7.1
@@ -15,5 +17,6 @@ python-dotenv==1.2.2
 requests==2.34.2
 sqlparse==0.5.5
 typing_extensions==4.16.0
+tzlocal==5.4.4
 urllib3==2.7.0
 yarl==1.24.5
