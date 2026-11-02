@@ -45,6 +45,7 @@ jobs:
             SECRET_KEY=${{ secrets.SECRET_KEY }}
             BOT_TOKEN=${{ secrets.BOT_TOKEN }}
             GROUP_CHAT_ID=${{ secrets.GROUP_CHAT_ID }}
+            TEST_GROUP_CHAT_ID=${{ secrets.TEST_GROUP_CHAT_ID }}
             BOT_LINK=${{ secrets.BOT_LINK }}
             POSTGRES_DB=${{ secrets.POSTGRES_DB }}
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
