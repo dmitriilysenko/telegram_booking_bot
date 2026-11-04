@@ -171,11 +171,16 @@ def cancel_booking_callback(call: CallbackQuery):
     ).order_by('date', 'time')
 
     if not bookings:
+        kb = InlineKeyboardMarkup(row_width=2)
+        kb.add(
+            InlineKeyboardButton('📝 Записаться', callback_data='book'),
+            InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
+        )
         bot.edit_message_text(
             '📭 У тебя нет активных записей на текущую неделю.',
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
-            reply_markup=get_navigation_keyboard(),
+            reply_markup=kb,
         )
         return
 
@@ -367,25 +372,77 @@ def airsoft_confirm(call: CallbackQuery):
 
 # --- РЕГИСТРАЦИЯ (уведомление админу) ---
 
+def _registration_kb(user):
+    """Клавиатура для уведомления админу: пол + airsoft (все кнопки)."""
+    kb = InlineKeyboardMarkup().add(
+        InlineKeyboardButton(
+            f'{"✅ " if user.gender == "M" else ""}👦 Мальчик',
+            callback_data=f'reg_gender_{user.id}_M',
+        ),
+        InlineKeyboardButton(
+            f'{"✅ " if user.gender == "F" else ""}👧 Девочка',
+            callback_data=f'reg_gender_{user.id}_F',
+        ),
+    ).add(
+        InlineKeyboardButton(
+            f'{"✅ " if user.is_airsoft_member else ""}🎯 Airsoft',
+            callback_data=f'reg_airsoft_{user.id}_1',
+        ),
+        InlineKeyboardButton(
+            f'{"✅ " if not user.is_airsoft_member else ""}🚫 Не airsoft',
+            callback_data=f'reg_airsoft_{user.id}_0',
+        ),
+    )
+    return kb
+
+
+def _registration_text(user):
+    """Текст уведомления админу с текущими значениями."""
+    gender = {'M': '👦 Мальчик', 'F': '👧 Девочка'}.get(user.gender, '—')
+    return (
+        f'🆕 Новый пользователь\n\n'
+        f'Имя: {user.display_name}\n'
+        f'Username: @{user.username or "—"}\n'
+        f'Telegram ID: {user.telegram_id}\n'
+        f'Дата: {user.registered_at:%d.%m.%Y %H:%M}\n\n'
+        f'Пол: {gender}\n'
+        f'Airsoft: {"✅" if user.is_airsoft_member else "❌"}'
+    )
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith('reg_gender_'))
-def reg_gender(call: CallbackQuery):
-    """Админ ставит пол новому пользователю (reg_gender_{user_id}_{M/F})."""
+def reg_gender(call):
+    """Админ ставит пол (reg_gender_{user_id}_{M/F}), клавиатура остаётся."""
     bot.answer_callback_query(call.id)
     _, _, user_id, gender = call.data.split('_')
-    User.objects.filter(id=int(user_id)).update(gender=gender)
+    user = User.objects.filter(id=int(user_id)).first()
+    if not user:
+        bot.answer_callback_query(call.id, '❌ Пользователь не найден')
+        return
+    user.gender = gender
+    user.save(update_fields=('gender',))
     bot.edit_message_text(
-        f'✅ Пол: {gender}', call.message.chat.id, call.message.message_id,
+        _registration_text(user),
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=_registration_kb(user),
     )
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('reg_airsoft_'))
-def reg_airsoft(call: CallbackQuery):
-    """Админ ставит is_airsoft_member новому пользователю (reg_airsoft_{user_id}_{1/0})."""
+def reg_airsoft(call):
+    """Админ ставит is_airsoft_member (reg_airsoft_{user_id}_{1/0}), клавиатура остаётся."""
     bot.answer_callback_query(call.id)
     _, _, user_id, value = call.data.split('_')
-    User.objects.filter(id=int(user_id)).update(
-        is_airsoft_member=(value == '1')
-    )
+    user = User.objects.filter(id=int(user_id)).first()
+    if not user:
+        bot.answer_callback_query(call.id, '❌ Пользователь не найден')
+        return
+    user.is_airsoft_member = value == '1'
+    user.save(update_fields=('is_airsoft_member',))
     bot.edit_message_text(
-        f'✅ Airsoft: {value == "1"}', call.message.chat.id, call.message.message_id,
+        _registration_text(user),
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=_registration_kb(user),
     )

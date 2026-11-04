@@ -5,7 +5,8 @@ def get_navigation_keyboard(
         show_schedule: bool = True,
         show_help: bool = True,
         show_profile: bool = True,
-        show_review: bool = True
+        show_review: bool = True,
+        show_book_action: bool = True
 ) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardMarkup(row_width=2)
     buttons = []
@@ -19,5 +20,7 @@ def get_navigation_keyboard(
         buttons.append(InlineKeyboardButton('❓ Помощь', callback_data='nav_help'))
     if show_review:
         buttons.append(InlineKeyboardButton('✍️ Отзыв', callback_data='review'))
+    if show_book_action:
+        buttons.append(InlineKeyboardButton('📝 Записаться', callback_data='book'))
     keyboard.add(*buttons)
     return keyboard
