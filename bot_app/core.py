@@ -6,7 +6,9 @@ from telebot import TeleBot
 
 
 logger = logging.getLogger(__name__)
-BOT_TOKEN = getattr(settings, 'BOT_TOKEN', None)
+
+GROUP_CHAT_ID = getattr(settings, 'TEST_GROUP_CHAT_ID', None)
+BOT_LINK = getattr(settings, 'BOT_LINK', '')
 
 
 @lru_cache(maxsize=1)
@@ -18,18 +20,18 @@ def get_bot():
 
 bot = get_bot()
 
-GROUP_CHAT_ID = getattr(settings, 'TEST_GROUP_CHAT_ID', None)
-BOT_LINK = getattr(settings, 'BOT_LINK', '')
-
-def format_mention(user) -> str:
-    """
-    Форматирует упоминание пользователя для HTML-разметки
-    """
+def format_mention(user):
+    """Форматирует упоминание пользователя для HTML-разметки"""
     if user.username:
-        mention = f"@{user.username}"
-    else:
-        mention = f"{user.first_name} {user.last_name or ''}".strip()
-    return mention
+        return f'@{user.username}'
+    return f'{user.first_name} {user.last_name or ""}'.strip()
+
+def is_admin(user):
+    return bool(user and user.is_staff)
+
+def get_trainers():
+    from bot_app.models import User
+    return User.objects.filter(is_trainer=True)
 
 class FakeMessage:
     """Заглушка Message для вызова команд из callback'ов."""

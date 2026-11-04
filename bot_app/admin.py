@@ -1,59 +1,51 @@
 from django.contrib import admin
-from .models import User, Booking
+from .models import User, Booking, Review, AirsoftConfirmation
 
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    """Админка для модели User"""
-    list_display = ('id', 'telegram_id', 'username', 'first_name', 'last_name', 'registered_at')
-    list_filter = ('registered_at',)
-    search_fields = ('telegram_id', 'username', 'first_name', 'last_name')
+    list_display = (
+        'id', 'telegram_id', 'display_name', 'gender',
+        'is_airsoft_member', 'is_staff', 'is_trainer', 'registered_at',
+    )
+    list_filter = ('is_airsoft_member', 'gender', 'is_staff', 'is_trainer')
+    search_fields = ('telegram_id', 'username', 'display_name', 'first_name', 'last_name')
+    list_editable = ('is_airsoft_member', 'is_staff', 'is_trainer')
     readonly_fields = ('registered_at',)
     ordering = ('-registered_at',)
-
-    fieldsets = (
-        ('Основная информация', {
-            'fields': ('telegram_id', 'username', 'first_name', 'last_name')
-        }),
-        ('Дата регистрации', {
-            'fields': ('registered_at',),
-            'classes': ('collapse',)  # Сворачиваемый блок
-        }),
-    )
 
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    """Админка для модели Booking"""
     list_display = ('id', 'user', 'date', 'time', 'is_active', 'created_at')
     list_filter = ('is_active', 'date', 'time')
-    search_fields = ('user__telegram_id', 'user__username', 'user__first_name', 'user__last_name')
+    search_fields = ('user__telegram_id', 'user__display_name', 'user__username')
     readonly_fields = ('created_at',)
     ordering = ('-date', '-time')
+    actions = ('mark_as_active', 'mark_as_inactive')
 
-    fieldsets = (
-        ('Запись', {
-            'fields': ('user', 'date', 'time', 'is_active')
-        }),
-        ('Дата создания', {
-            'fields': ('created_at',),
-            'classes': ('collapse',)
-        }),
-    )
-
-    # Действия для массовых операций
-    actions = ['mark_as_active', 'mark_as_inactive']
-
+    @admin.action(description='Активировать')
     def mark_as_active(self, request, queryset):
-        """Активные записи"""
         updated = queryset.update(is_active=True)
-        self.message_user(request, f"Активировано {updated} записей")
+        self.message_user(request, f'Активировано {updated}')
 
-    mark_as_active.short_description = "Активировать выбранные записи"
-
+    @admin.action(description='Деактивировать')
     def mark_as_inactive(self, request, queryset):
-        """Деактивировать записи"""
         updated = queryset.update(is_active=False)
-        self.message_user(request, f"Деактивировано {updated} записей")
+        self.message_user(request, f'Деактивировано {updated}')
 
-    mark_as_inactive.short_description = "Деактивировать выбранные записи"
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'text', 'created_at')
+    search_fields = ('user__display_name', 'text')
+    readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
+
+
+@admin.register(AirsoftConfirmation)
+class AirsoftConfirmationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'week_start', 'confirmed', 'created_at')
+    list_filter = ('confirmed', 'week_start')
+    search_fields = ('user__display_name',)
+    readonly_fields = ('created_at',)

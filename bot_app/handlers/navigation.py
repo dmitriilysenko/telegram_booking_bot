@@ -2,7 +2,8 @@ from telebot.types import Message, CallbackQuery
 
 from bot_app.core import bot, FakeMessage
 from bot_app.keyboards import get_navigation_keyboard
-from .commands import my_bookings_command, schedule_command, help_command
+from .commands import (
+    my_bookings_command, schedule_command, help_command, profile_command)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "nav_my_bookings")
@@ -39,5 +40,11 @@ def echo_all(message: Message):
         "Используй кнопки ниже для навигации:",
         reply_markup=keyboard
     )
+
+@bot.callback_query_handler(func=lambda call: call.data == 'nav_profile')
+def nav_profile_callback(call):
+    bot.answer_callback_query(call.id)
+    fake_message = FakeMessage(call.message.chat.id, call.from_user)
+    profile_command(fake_message)
 
 

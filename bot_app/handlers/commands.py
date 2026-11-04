@@ -6,8 +6,8 @@ from telebot.types import (
     InlineKeyboardButton
 )
 
-from bot_app.models import User, Booking
-from bot_app.core import bot, logger
+from bot_app.models import User, Booking, Review
+from bot_app.core import bot, logger, is_admin
 from bot_app.config import WEEKDAY_NAMES, BOOKING_OPEN_HOUR
 from bot_app.services.schedule import (
 get_week_range, get_slots_for_week, get_current_week_start, format_slot
@@ -33,35 +33,76 @@ def get_user_from_message(message: Message):
 
 @bot.message_handler(commands=['start'])
 def start_command(message: Message):
-    """Регистрирует пользователя в системе"""
     user, created = User.objects.get_or_create(
         telegram_id=message.from_user.id,
         defaults={
             'username': message.from_user.username,
             'first_name': message.from_user.first_name,
             'last_name': message.from_user.last_name,
+            'display_name': message.from_user.first_name,
         }
     )
-
     if created:
-        logger.info(f"Новый пользователь: {user}")
+        logger.info(f'Новый пользователь: {user}')
+        for staff in User.objects.filter(is_staff=True):
+            try:
+                kb = InlineKeyboardMarkup().add(
+                    InlineKeyboardButton('👦 Мальчик', callback_data=f'reg_gender_{user.id}_M'),
+                    InlineKeyboardButton('👧 Девочка', callback_data=f'reg_gender_{user.id}_F'),
+                ).add(
+                    InlineKeyboardButton('🎯 Airsoft ✅', callback_data=f'reg_airsoft_{user.id}_1'),
+                    InlineKeyboardButton('🎯 Airsoft ❌', callback_data=f'reg_airsoft_{user.id}_0'),
+                )
+                bot.send_message(
+                    staff.telegram_id,
+                    f'🆕 {user.display_name} (@{user.username or "—"})',
+                    reply_markup=kb,
+                )
+            except Exception as e:
+                logger.error(f'Уведомление админу: {e}')
         text = (
-            f"👋 Привет, {user.first_name}!\n"
-            "Ты успешно зарегистрирован в системе записи.\n\n"
-            "📌 Используй кнопки ниже для навигации:"
+            f'👋 Привет, {user.first_name}!\n'
+            'Ты зарегистрирован. Используй кнопки ниже:'
         )
     else:
-        text = (
-            f"👋 С возвращением, {user.first_name}!\n\n"
-            "📌 Используй кнопки ниже для навигации:"
-        )
+        text = f'👋 С возвращением, {user.first_name}!'
+    bot.send_message(message.chat.id, text, reply_markup=get_navigation_keyboard())
 
-    keyboard = get_navigation_keyboard()
-    bot.send_message(
-        message.chat.id,
-        text,
-        reply_markup=keyboard
+@bot.message_handler(commands=['profile'])
+def profile_command(message: Message):
+    user = get_user_from_message(message)
+    if not user:
+        return
+    text = (
+        f'👤 *Личный кабинет*\n\n'
+        f'Имя: {user.display_name}\n'
+        f'Username: @{user.username or "—"}\n'
+        f'Airsoft: {"✅" if user.is_airsoft_member else "❌"}\n'
+        f'Пол: {"👦" if user.gender == "M" else "👧" if user.gender == "F" else "—"}\n'
     )
+    kb = InlineKeyboardMarkup(row_width=2).add(
+        InlineKeyboardButton('✏️ Изменить имя', callback_data='profile_edit_name'),
+        InlineKeyboardButton('📋 Мои записи', callback_data='nav_my_bookings'),
+    ).add(
+        InlineKeyboardButton('✍️ Оставить отзыв', callback_data='review'),
+    )
+    bot.send_message(message.chat.id, text, parse_mode='Markdown', reply_markup=kb)
+
+@bot.message_handler(commands=['reviews'])
+def reviews_command(message: Message):
+    user = get_user_from_message(message)
+    if not user or not is_admin(user):
+        bot.send_message(message.chat.id, '❌ Нет доступа')
+        return
+    reviews = Review.objects.select_related('user')[:20]
+    if not reviews:
+        bot.send_message(message.chat.id, 'Отзывов нет')
+        return
+    text = '\n\n'.join(
+        f'👤 {r.user.display_name} ({r.created_at:%d.%m %H:%M}):\n{r.text}'
+        for r in reviews
+    )
+    bot.send_message(message.chat.id, text)
 
 @bot.message_handler(commands=['help'])
 def help_command(message: Message):

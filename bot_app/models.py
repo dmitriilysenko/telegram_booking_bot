@@ -6,10 +6,23 @@ class User(models.Model):
     username = models.CharField(max_length=150, blank=True, null=True, verbose_name="Username")
     first_name = models.CharField(max_length=150, verbose_name="Имя")
     last_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="Фамилия")
-    registered_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата регистрации")
+    display_name = models.CharField(
+        max_length=150, blank=True, default='', verbose_name='Отображаемое имя'
+    )
+    gender = models.CharField(
+        max_length=1,
+        choices=(('M', 'Мальчик'), ('F', 'Девочка')),
+        blank=True, default='', verbose_name='Пол',
+    )
+    is_airsoft_member = models.BooleanField(
+        default=False, verbose_name='Состоит в airsoft-группе'
+    )
+    is_staff = models.BooleanField(default=False, verbose_name='Админ')
+    is_trainer = models.BooleanField(default=False, verbose_name='Тренер')
+    registered_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата регистрации')
 
     def __str__(self):
-        return f"{self.first_name} {self.last_name or ''}".strip()
+        return self.display_name or f'{self.first_name} {self.last_name or ""}'.strip()
 
     class Meta:
         verbose_name = "Участник"
@@ -44,3 +57,45 @@ class Booking(models.Model):
             ),
         )
         ordering = ('date', 'time')
+
+
+class Review(models.Model):
+    """Отзыв о работе бота"""
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='reviews', verbose_name='Пользователь',
+    )
+    text = models.TextField(verbose_name='Отзыв')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата')
+
+    def __str__(self):
+        return f'{self.user}: {self.text[:50]}'
+
+    class Meta:
+        verbose_name = 'Отзыв'
+        verbose_name_plural = 'Отзывы'
+        ordering = ('-created_at',)
+
+
+class AirsoftConfirmation(models.Model):
+    """Подтверждение участия в airsoft-тренировке"""
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='airsoft_confirmations', verbose_name='Пользователь',
+    )
+    week_start = models.DateField(verbose_name='Неделя')
+    confirmed = models.BooleanField(default=False, verbose_name='Подтверждено')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.user} — {self.week_start} — {"✅" if self.confirmed else "❌"}'
+
+    class Meta:
+        verbose_name = 'Подтверждение airsoft'
+        verbose_name_plural = 'Подтверждения airsoft'
+        constraints = (
+            models.UniqueConstraint(
+                fields=('user', 'week_start'),
+                name='unique_airsoft_confirmation',
+            ),
+        )

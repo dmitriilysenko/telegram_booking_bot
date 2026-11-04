@@ -1,36 +1,15 @@
-"""
-Конфигурация расписания бота
-"""
-
 from datetime import time
 
 MAX_PEOPLE_PER_SLOT = 2
 
-MONDAY = 0
-TUESDAY = 1
-WEDNESDAY = 2
-THURSDAY = 3
-FRIDAY = 4
-SATURDAY = 5
-SUNDAY = 6
+MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY = range(7)
 
-SLOTS = [
-#    time(11, 10),
-    time(11, 30),
-    time(12, 0),
-    time(17, 10),
-]
-
-# Используем срезы для разных дней
 SLOTS_BY_DAY = {
-    TUESDAY: SLOTS,           # все 4 слота
-    WEDNESDAY: SLOTS,         # все 4 слота
-    THURSDAY: SLOTS,          # все 4 слота
-    FRIDAY: SLOTS[:2],        # первые 3 слота (без 17:10)
+    TUESDAY: (time(11, 30), time(11, 45), time(12, 0), time(17, 10)),
+    THURSDAY: (time(11, 30), time(11, 45), time(12, 0), time(17, 10)),
+    FRIDAY: (time(11, 30), time(11, 45), time(12, 0), time(16, 10)),
 }
 
-# Генерируем плоский список всех слотов для быстрых проверок
-# Формат: [(day, time), (day, time), ...]
 VALID_SLOTS = [
     (day, time_obj)
     for day, times in SLOTS_BY_DAY.items()
@@ -47,7 +26,6 @@ WEEKDAY_NAMES = {
     SUNDAY: 'Воскресенье',
 }
 
-# Сокращённые названия (для кнопок)
 WEEKDAY_NAMES_SHORT = {
     MONDAY: 'Пн',
     TUESDAY: 'Вт',
@@ -59,81 +37,41 @@ WEEKDAY_NAMES_SHORT = {
 }
 BOOKING_OPEN_HOUR = 9
 
-# ============================================
-# ФУНКЦИИ ДЛЯ РАБОТЫ С КОНФИГУРАЦИЕЙ
-# ============================================
 
 def is_valid_slot(day: int, time_obj: time) -> bool:
-    """
-    Проверяет, существует ли такой слот в конфигурации
-
-    Args:
-        day: день недели (0-6)
-        time_obj: объект time
-
-    Returns:
-        True если слот существует, иначе False
-    """
+    """Проверяет, существует ли такой слот в конфигурации."""
     return (day, time_obj) in VALID_SLOTS
-
 
 def get_available_slots_text() -> str:
     """
     Возвращает форматированный текст со списком всех слотов
     Используется для подсказок пользователю при ошибках
-
-    Returns:
-        Строка со списком слотов
     """
+
     lines = []
     for day, times in SLOTS_BY_DAY.items():
-        day_name = WEEKDAY_NAMES[day]
-        lines.append(f"\n{day_name}:")
-        for time_obj in times:
-            lines.append(f"  {time_obj.strftime('%H:%M')}")
-    return "\n".join(lines)
+        lines.append(f'\n{WEEKDAY_NAMES[day]}:')
+        for t in times:
+            lines.append(f'  {t.strftime("%H:%M")}')
+    return '\n'.join(lines)
 
 
 def get_slots_summary() -> str:
-    """
-    Возвращает краткую сводку по слотам (для отладки)
-
-    Returns:
-        Строка со сводкой
-    """
-    total_slots = len(VALID_SLOTS)
-    days_count = len(SLOTS_BY_DAY)
     return (
-        f"Всего слотов: {total_slots}\n"
-        f"Дней: {days_count}\n"
-        f"Максимум мест на слот: {MAX_PEOPLE_PER_SLOT}"
+        f'Всего слотов: {len(VALID_SLOTS)}\n'
+        f'Дней: {len(SLOTS_BY_DAY)}\n'
+        f'Максимум мест на слот: {MAX_PEOPLE_PER_SLOT}'
     )
 
-
-# ============================================
-# ПРОВЕРКА КОНФИГУРАЦИИ ПРИ ЗАГРУЗКЕ
-# ============================================
-
 def validate_config():
-    """
-    Проверяет конфигурацию на корректность
-    Вызывается автоматически при импорте
-    """
     if not VALID_SLOTS:
-        raise ValueError("❌ Конфигурация пуста! Добавьте хотя бы один слот.")
-
-    for day in SLOTS_BY_DAY.keys():
+        raise ValueError('❌ Конфигурация пуста!')
+    for day in SLOTS_BY_DAY:
         if day not in WEEKDAY_NAMES:
-            raise ValueError(f"❌ День {day} отсутствует в WEEKDAY_NAMES")
-
-    unique_slots = set(VALID_SLOTS)
-    if len(unique_slots) != len(VALID_SLOTS):
-        duplicates = [s for s in VALID_SLOTS if VALID_SLOTS.count(s) > 1]
-        raise ValueError(f"❌ Найдены дубликаты слотов: {set(duplicates)}")
-
-    print("✅ Конфигурация расписания загружена:")
-    print(get_slots_summary())
-
+            raise ValueError(f'❌ День {day} отсутствует в WEEKDAY_NAMES')
+    unique = set(VALID_SLOTS)
+    if len(unique) != len(VALID_SLOTS):
+        raise ValueError('❌ Дубликаты слотов')
 
 # Автоматическая проверка при импорте
 validate_config()
