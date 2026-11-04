@@ -13,7 +13,7 @@ from bot_app.services.schedule import (
 get_week_range, get_slots_for_week, get_current_week_start, format_slot
 )
 from bot_app.keyboards import get_navigation_keyboard
-from .callbacks import _registration_kb, _registration_text
+
 
 def get_user_by_telegram_id(telegram_id: int):
     """Получает пользователя из БД по telegram_id"""
@@ -46,10 +46,17 @@ def start_command(message: Message):
         logger.info(f'Новый пользователь: {user}')
         for staff in User.objects.filter(is_staff=True):
             try:
+                kb = InlineKeyboardMarkup().add(
+                    InlineKeyboardButton('👦 Мальчик', callback_data=f'reg_gender_{user.id}_M'),
+                    InlineKeyboardButton('👧 Девочка', callback_data=f'reg_gender_{user.id}_F'),
+                ).add(
+                    InlineKeyboardButton('🎯 Airsoft ✅', callback_data=f'reg_airsoft_{user.id}_1'),
+                    InlineKeyboardButton('🎯 Airsoft ❌', callback_data=f'reg_airsoft_{user.id}_0'),
+                )
                 bot.send_message(
                     staff.telegram_id,
-                    _registration_text(user),
-                    reply_markup=_registration_kb(user),
+                    f'🆕 {user.display_name} (@{user.username or "—"})',
+                    reply_markup=kb,
                 )
             except Exception as e:
                 logger.error(f'Уведомление админу: {e}')
@@ -153,13 +160,10 @@ def schedule_command(message: Message):
     text = f"📅 Расписание на неделю {week_range}\n\n"
 
     for day_name, day_slots in grouped.items():
-        text += f'📍 {day_name}\n'
+        text += f"📍 {day_name}\n"
         for slot in day_slots:
-            line = f'  {format_slot(slot)}'
-            if slot['names']:
-                line += f' — {", ".join(slot["names"])}'
-            text += line + '\n'
-        text += '\n'
+            text += f"  {format_slot(slot)}\n"
+        text += "\n"
 
     # Информация о времени открытия записи
     monday_open = timezone.make_aware(
@@ -285,15 +289,13 @@ def my_bookings_command(message: Message):
     ).order_by('date', 'time')
 
     if not bookings:
-        text = '📭 У тебя нет активных записей на текущую неделю.'
-        keyboard = InlineKeyboardMarkup(row_width=2)
-        keyboard.add(
-            InlineKeyboardButton('📝 Записаться', callback_data='book'),
-            InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
+        text = "📭 У тебя нет активных записей на текущую неделю."
+        keyboard = get_navigation_keyboard()
+        bot.send_message(
+            message.chat.id,
+            text,
+            reply_markup=keyboard
         )
-        keyboard.add(
-            InlineKeyboardButton('❓ Помощь', callback_data='nav_help'))
-        bot.send_message(message.chat.id, text, reply_markup=keyboard)
         return
 
     text = f"📋 Твои записи на неделю {get_week_range(week_start)}:\n\n"
@@ -338,15 +340,12 @@ def cancel_command(message: Message):
     ).order_by('-created_at').first()
 
     if not booking:
-        kb = InlineKeyboardMarkup(row_width=2)
-        kb.add(
-            InlineKeyboardButton('📝 Записаться', callback_data='book'),
-            InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
-        )
+        text = "📭 У тебя нет активных записей на текущую неделю."
+        keyboard = get_navigation_keyboard()
         bot.send_message(
             message.chat.id,
-            '📭 У тебя нет активных записей на текущую неделю.',
-            reply_markup=kb,
+            text,
+            reply_markup=keyboard
         )
         return
 
