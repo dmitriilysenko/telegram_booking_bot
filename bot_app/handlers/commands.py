@@ -289,13 +289,15 @@ def my_bookings_command(message: Message):
     ).order_by('date', 'time')
 
     if not bookings:
-        text = "📭 У тебя нет активных записей на текущую неделю."
-        keyboard = get_navigation_keyboard()
-        bot.send_message(
-            message.chat.id,
-            text,
-            reply_markup=keyboard
+        text = '📭 У тебя нет активных записей на текущую неделю.'
+        keyboard = InlineKeyboardMarkup(row_width=2)
+        keyboard.add(
+            InlineKeyboardButton('📝 Записаться', callback_data='book'),
+            InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
         )
+        keyboard.add(
+            InlineKeyboardButton('❓ Помощь', callback_data='nav_help'))
+        bot.send_message(message.chat.id, text, reply_markup=keyboard)
         return
 
     text = f"📋 Твои записи на неделю {get_week_range(week_start)}:\n\n"
