@@ -170,15 +170,6 @@ def cancel_booking_callback(call: CallbackQuery):
         date__gte=week_start, date__lte=week_end,
     ).order_by('date', 'time')
 
-    if not bookings:
-        bot.edit_message_text(
-            '📭 У тебя нет активных записей на текущую неделю.',
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=get_navigation_keyboard(),
-        )
-        return
-
     if len(bookings) == 1:
         booking = bookings.first()
         booking.is_active = False

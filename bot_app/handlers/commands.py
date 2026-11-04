@@ -160,10 +160,13 @@ def schedule_command(message: Message):
     text = f"📅 Расписание на неделю {week_range}\n\n"
 
     for day_name, day_slots in grouped.items():
-        text += f"📍 {day_name}\n"
+        text += f'📍 {day_name}\n'
         for slot in day_slots:
-            text += f"  {format_slot(slot)}\n"
-        text += "\n"
+            line = f'  {format_slot(slot)}'
+            if slot['names']:
+                line += f' — {", ".join(slot["names"])}'
+            text += line + '\n'
+        text += '\n'
 
     # Информация о времени открытия записи
     monday_open = timezone.make_aware(
@@ -342,12 +345,15 @@ def cancel_command(message: Message):
     ).order_by('-created_at').first()
 
     if not booking:
-        text = "📭 У тебя нет активных записей на текущую неделю."
-        keyboard = get_navigation_keyboard()
+        kb = InlineKeyboardMarkup(row_width=2)
+        kb.add(
+            InlineKeyboardButton('📝 Записаться', callback_data='book'),
+            InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
+        )
         bot.send_message(
             message.chat.id,
-            text,
-            reply_markup=keyboard
+            '📭 У тебя нет активных записей на текущую неделю.',
+            reply_markup=kb,
         )
         return
 
