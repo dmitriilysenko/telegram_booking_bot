@@ -3,7 +3,7 @@ from telebot.types import Message, CallbackQuery
 from bot_app.core import bot, FakeMessage
 from bot_app.keyboards import get_navigation_keyboard
 from .commands import (
-    my_bookings_command, schedule_command, help_command, profile_command)
+    my_bookings_command, schedule_command, main_command, profile_command)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "nav_my_bookings")
@@ -22,12 +22,12 @@ def nav_schedule_callback(call: CallbackQuery):
     schedule_command(fake_message)
 
 
-@bot.callback_query_handler(func=lambda call: call.data == "nav_help")
-def nav_help_callback(call: CallbackQuery):
-    """Навигация в /help"""
+@bot.callback_query_handler(func=lambda call: call.data == "nav_main")
+def nav_main_callback(call: CallbackQuery):
+    """Навигация в /main"""
     bot.answer_callback_query(call.id)
     fake_message = FakeMessage(call.message.chat.id, call.from_user)
-    help_command(fake_message)
+    main_command(fake_message)
 
 
 @bot.message_handler(func=lambda message: True)

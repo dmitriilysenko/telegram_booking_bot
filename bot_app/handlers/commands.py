@@ -104,8 +104,8 @@ def reviews_command(message: Message):
     )
     bot.send_message(message.chat.id, text)
 
-@bot.message_handler(commands=['help'])
-def help_command(message: Message):
+@bot.message_handler(commands=['main'])
+def main_command(message: Message):
     """Показывает список доступных команд"""
     text = f"""
 🤖 Доступные команды:
@@ -115,7 +115,7 @@ def help_command(message: Message):
 /book — записаться на занятие
 /my_bookings — мои записи
 /cancel — отменить последнюю запись
-/help — эта справка
+/main — эта справка
 
 📌 Количество мест: 2 человека на слот
 📌 Ограничения:
@@ -187,7 +187,7 @@ def schedule_command(message: Message):
         InlineKeyboardButton("📋 Мои записи", callback_data="nav_my_bookings")
     )
     keyboard.add(
-        InlineKeyboardButton("❓ Помощь", callback_data="nav_help")
+        InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main")
     )
 
     bot.send_message(
@@ -299,7 +299,7 @@ def my_bookings_command(message: Message):
             InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
         )
         keyboard.add(
-            InlineKeyboardButton('❓ Помощь', callback_data='nav_help'))
+            InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main"))
         bot.send_message(message.chat.id, text, reply_markup=keyboard)
         return
 
@@ -317,7 +317,7 @@ def my_bookings_command(message: Message):
         InlineKeyboardButton("📅 Расписание", callback_data="nav_schedule")
     )
     keyboard.add(
-        InlineKeyboardButton("❓ Помощь", callback_data="nav_help")
+        InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main")
     )
 
     bot.send_message(
@@ -367,7 +367,7 @@ def cancel_command(message: Message):
         InlineKeyboardButton("📅 Расписание", callback_data="nav_schedule")
     )
     keyboard.add(
-        InlineKeyboardButton("❓ Помощь", callback_data="nav_help")
+        InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main")
     )
 
     bot.send_message(

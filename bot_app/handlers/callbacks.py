@@ -138,7 +138,7 @@ def confirm_booking_callback(call: CallbackQuery):
             InlineKeyboardButton('📋 Мои записи', callback_data='nav_my_bookings'),
             InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
         )
-        keyboard.add(InlineKeyboardButton('❓ Помощь', callback_data='nav_help'))
+        keyboard.add(InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main"))
         bot.edit_message_text(
             f'✅ Ты записался!\n\n'
             f'📅 {WEEKDAY_NAMES[day]} {dt.strftime("%d.%m")}\n'
@@ -194,7 +194,7 @@ def cancel_booking_callback(call: CallbackQuery):
             InlineKeyboardButton('📋 Мои записи', callback_data='nav_my_bookings'),
             InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
         )
-        keyboard.add(InlineKeyboardButton('❓ Помощь', callback_data='nav_help'))
+        keyboard.add(InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main"))
         bot.edit_message_text(
             f'❌ Запись на {booking.date.strftime("%d.%m")} '
             f'{booking.time.strftime("%H:%M")} отменена.',
@@ -283,7 +283,7 @@ def confirm_cancel_callback(call: CallbackQuery):
         InlineKeyboardButton('📋 Мои записи', callback_data='nav_my_bookings'),
         InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
     )
-    keyboard.add(InlineKeyboardButton('❓ Помощь', callback_data='nav_help'))
+    keyboard.add(InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main"))
     bot.edit_message_text(
         f'❌ Запись на {dt.strftime("%d.%m")} {time_obj.strftime("%H:%M")} отменена.',
         chat_id=call.message.chat.id,
