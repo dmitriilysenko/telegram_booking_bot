@@ -170,6 +170,20 @@ def cancel_booking_callback(call: CallbackQuery):
         date__gte=week_start, date__lte=week_end,
     ).order_by('date', 'time')
 
+    if not bookings:
+        kb = InlineKeyboardMarkup(row_width=2)
+        kb.add(
+            InlineKeyboardButton('📝 Записаться', callback_data='book'),
+            InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
+        )
+        bot.edit_message_text(
+            '📭 У тебя нет активных записей на текущую неделю.',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=kb,
+        )
+        return
+
     if len(bookings) == 1:
         booking = bookings.first()
         booking.is_active = False
