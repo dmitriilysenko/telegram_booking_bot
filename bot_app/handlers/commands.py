@@ -12,7 +12,9 @@ from bot_app.config import WEEKDAY_NAMES, BOOKING_OPEN_HOUR
 from bot_app.services.schedule import (
 get_week_range, get_slots_for_week, get_current_week_start, format_slot
 )
-from bot_app.keyboards import get_navigation_keyboard
+from bot_app.keyboards import (
+    get_navigation_keyboard, get_registration_keyboard, get_registration_text,
+)
 
 
 def get_user_by_telegram_id(telegram_id: int):
@@ -46,17 +48,10 @@ def start_command(message: Message):
         logger.info(f'Новый пользователь: {user}')
         for staff in User.objects.filter(is_staff=True):
             try:
-                kb = InlineKeyboardMarkup().add(
-                    InlineKeyboardButton('👦 Мальчик', callback_data=f'reg_gender_{user.id}_M'),
-                    InlineKeyboardButton('👧 Девочка', callback_data=f'reg_gender_{user.id}_F'),
-                ).add(
-                    InlineKeyboardButton('🎯 Airsoft ✅', callback_data=f'reg_airsoft_{user.id}_1'),
-                    InlineKeyboardButton('🎯 Airsoft ❌', callback_data=f'reg_airsoft_{user.id}_0'),
-                )
                 bot.send_message(
                     staff.telegram_id,
-                    f'🆕 {user.display_name} (@{user.username or "—"})',
-                    reply_markup=kb,
+                    get_registration_text(user),
+                    reply_markup=get_registration_keyboard(user),
                 )
             except Exception as e:
                 logger.error(f'Уведомление админу: {e}')

@@ -6,9 +6,10 @@ from telebot.types import (
     InlineKeyboardButton,
     CallbackQuery,
 )
+from django.utils import timezone
 
 from bot_app.models import (
-    Booking, User, Review, AirsoftConfirmation,
+    Booking, User, Review, AirsoftConfirmation, AirsoftTraining
 )
 from bot_app.core import (
     bot, logger, FakeMessage, get_trainers,
@@ -19,7 +20,11 @@ from bot_app.config import (
     WEEKDAY_NAMES_SHORT,
     is_valid_slot,
 )
-from bot_app.keyboards import get_navigation_keyboard
+from bot_app.keyboards import (
+    get_navigation_keyboard, get_airsoft_member_keyboard,
+    get_airsoft_trainer_keyboard, get_registration_keyboard,
+    get_registration_text)
+from bot_app.services.airsoft import format_airsoft_text
 from bot_app.services.schedule import get_current_week_start
 from bot_app.services.booking import check_booking_limits
 from .commands import book_command, get_user_from_message
@@ -339,58 +344,125 @@ def save_display_name(message):
     bot.send_message(message.chat.id, f'✅ Имя изменено: {name}')
 
 
-# --- AIRSOFT ---
-
-@bot.callback_query_handler(func=lambda call: call.data in ('airsoft_yes', 'airsoft_no'))
-def airsoft_confirm(call: CallbackQuery):
-    """Подтверждение/отказ airsoft. При «Да» — уведомление тренерам."""
-    bot.answer_callback_query(call.id)
-    user = get_user_from_callback(call)
-    if not user:
-        return
-    confirmed = call.data == 'airsoft_yes'
-    week_start = get_current_week_start()
-    AirsoftConfirmation.objects.update_or_create(
-        user=user, week_start=week_start,
-        defaults={'confirmed': confirmed},
-    )
-    if confirmed:
-        for trainer in get_trainers():
-            try:
-                bot.send_message(
-                    trainer.telegram_id,
-                    f'✅ {user.display_name} подтвердил участие в airsoft.',
-                )
-            except Exception as e:
-                logger.error(f'Тренер {trainer}: {e}')
-    bot.edit_message_text(
-        '✅ Участие подтверждено' if confirmed else '❌ Участие отклонено',
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-    )
-
-
 # --- РЕГИСТРАЦИЯ (уведомление админу) ---
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('reg_gender_'))
 def reg_gender(call: CallbackQuery):
-    """Админ ставит пол новому пользователю (reg_gender_{user_id}_{M/F})."""
-    bot.answer_callback_query(call.id)
+    bot.answer_callback_query(call.id, '✅')
     _, _, user_id, gender = call.data.split('_')
-    User.objects.filter(id=int(user_id)).update(gender=gender)
+    user = User.objects.filter(id=int(user_id)).first()
+    if not user:
+        return
+    user.gender = gender
+    user.save(update_fields=('gender',))
     bot.edit_message_text(
-        f'✅ Пол: {gender}', call.message.chat.id, call.message.message_id,
+        get_registration_text(user),
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=get_registration_keyboard(user),
     )
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('reg_airsoft_'))
 def reg_airsoft(call: CallbackQuery):
-    """Админ ставит is_airsoft_member новому пользователю (reg_airsoft_{user_id}_{1/0})."""
-    bot.answer_callback_query(call.id)
+    bot.answer_callback_query(call.id, '✅')
     _, _, user_id, value = call.data.split('_')
-    User.objects.filter(id=int(user_id)).update(
-        is_airsoft_member=(value == '1')
+    user = User.objects.filter(id=int(user_id)).first()
+    if not user:
+        return
+    user.is_airsoft_member = value == '1'
+    user.save(update_fields=('is_airsoft_member',))
+    bot.edit_message_text(
+        get_registration_text(user),
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=get_registration_keyboard(user),
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data == 'airsoft')
+def airsoft_callback(call: CallbackQuery):
+    """Кнопка «Airsoft» — проверка is_airsoft_member, вывод тренировок."""
+    bot.answer_callback_query(call.id)
+    user = get_user_from_callback(call)
+    if not user:
+        return
+    if not user.is_airsoft_member:
+        bot.edit_message_text(
+            '❌ Вы не состоите в команде Airsoft.',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=InlineKeyboardMarkup().add(
+                InlineKeyboardButton('🏠 Главное меню', callback_data='nav_main'),
+            ),
+        )
+        return
+    keyboard = (
+        get_airsoft_trainer_keyboard() if user.is_trainer
+        else get_airsoft_member_keyboard()
     )
     bot.edit_message_text(
-        f'✅ Airsoft: {value == "1"}', call.message.chat.id, call.message.message_id,
+        format_airsoft_text(user),
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=keyboard,
+        parse_mode='Markdown',
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data in ('airsoft_yes', 'airsoft_no'))
+def airsoft_confirm(call: CallbackQuery):
+    """Участник: подтвердить/отказаться (группа — user.gender)."""
+    bot.answer_callback_query(call.id)
+    user = get_user_from_callback(call)
+    if not user:
+        return
+    if user.is_trainer:
+        # Тренер не должен нажимать «участник» — но если нажал, покажем тренерскую клавиатуру
+        bot.edit_message_text(
+            format_airsoft_text(user),
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=get_airsoft_trainer_keyboard(),
+            parse_mode='Markdown',
+        )
+        return
+    if not user.gender:
+        bot.answer_callback_query(call.id, '❌ Не указан пол — обратитесь к тренеру')
+        return
+    confirmed = call.data == 'airsoft_yes'
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+    AirsoftConfirmation.objects.update_or_create(
+        user=user, week_start=week_start, gender=user.gender,
+        defaults={'confirmed': confirmed},
+    )
+    bot.edit_message_text(
+        format_airsoft_text(user),
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=get_airsoft_member_keyboard(),
+        parse_mode='Markdown',
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('trainer_'))
+def trainer_airsoft(call: CallbackQuery):
+    """Тренер: trainer_{F/M}_{yes/no} — статус тренировки."""
+    bot.answer_callback_query(call.id)
+    user = get_user_from_callback(call)
+    if not user or not user.is_trainer:
+        return
+    _, gender, intent = call.data.split('_')  # trainer_F_yes
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+    training, _ = AirsoftTraining.objects.get_or_create(
+        gender=gender, week_start=week_start,
+    )
+    training.status = 'confirmed' if intent == 'yes' else 'cancelled'
+    training.save(update_fields=('status', 'updated_at'))
+    bot.edit_message_text(
+        format_airsoft_text(user),
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        reply_markup=get_airsoft_trainer_keyboard(),
+        parse_mode='Markdown',
     )
