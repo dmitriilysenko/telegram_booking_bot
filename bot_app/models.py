@@ -11,7 +11,7 @@ class User(models.Model):
     )
     gender = models.CharField(
         max_length=1,
-        choices=(('M', 'Мальчик'), ('F', 'Девочка')),
+        choices=(('M', 'Парень'), ('F', 'Девушка')),
         blank=True, default='', verbose_name='Пол',
     )
     is_airsoft_member = models.BooleanField(

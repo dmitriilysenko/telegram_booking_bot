@@ -60,11 +60,11 @@ def get_registration_keyboard(user) -> InlineKeyboardMarkup:
     """Клавиатура для уведомления админу: пол + airsoft (все кнопки)."""
     kb = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
-            f'{"✅ " if user.gender == "M" else ""}👦 Мальчик',
+            f'{"✅ " if user.gender == "M" else ""}👦 Парень',
             callback_data=f'reg_gender_{user.id}_M',
         ),
         InlineKeyboardButton(
-            f'{"✅ " if user.gender == "F" else ""}👧 Девочка',
+            f'{"✅ " if user.gender == "F" else ""}👧 Девушка',
             callback_data=f'reg_gender_{user.id}_F',
         ),
     ).add(
@@ -82,7 +82,7 @@ def get_registration_keyboard(user) -> InlineKeyboardMarkup:
 
 def get_registration_text(user) -> str:
     """Текст уведомления админу с текущими значениями."""
-    gender = {'M': '👦 Мальчик', 'F': '👧 Девочка'}.get(user.gender, '—')
+    gender = {'M': '👦 Парень', 'F': '👧 Девушка'}.get(user.gender, '—')
     return (
         f'🆕 Новый пользователь\n\n'
         f'Имя: {user.display_name}\n'
