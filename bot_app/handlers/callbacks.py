@@ -45,10 +45,9 @@ def get_user_from_callback(call: CallbackQuery):
     telegram_id = call.from_user.id
     user = User.objects.filter(telegram_id=telegram_id).first()
     if user:
-        bot.answer_callback_query(call.id, f'👋 Привет, {user.first_name}!')
         return user
+
     logger.warning(f'Пользователь не найден: {telegram_id}')
-    bot.answer_callback_query(call.id, '❌ Сначала напиши /start')
     bot.send_message(call.message.chat.id, '❌ Ты не зарегистрирован! Напиши /start')
     return None
 
@@ -432,7 +431,16 @@ def airsoft_confirm(call: CallbackQuery):
         )
         return
     if not user.gender:
-        bot.answer_callback_query(call.id, '❌ Не указан пол — обратитесь к тренеру')
+        bot.edit_message_text(
+            '❌ Не указан пол — обратитесь к тренеру, '
+            'чтобы он назначил вам группу (парни/девушки).',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=InlineKeyboardMarkup().add(
+                InlineKeyboardButton('🏠 Главное меню',
+                                     callback_data='nav_main'),
+            ),
+        )
         return
     confirmed = call.data == 'airsoft_yes'
     today = timezone.localdate()
