@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import User, Booking, Review, AirsoftConfirmation
+
+from .models import (
+    User, Booking, Review, AirsoftTraining, AirsoftConfirmation,
+)
 
 
 @admin.register(User)
@@ -13,6 +16,21 @@ class UserAdmin(admin.ModelAdmin):
     list_editable = ('is_airsoft_member', 'is_staff', 'is_trainer')
     readonly_fields = ('registered_at',)
     ordering = ('-registered_at',)
+    fieldsets = (
+        ('Основная информация', {
+            'fields': (
+                'telegram_id', 'username', 'first_name', 'last_name',
+                'display_name', 'gender',
+            ),
+        }),
+        ('Флаги', {
+            'fields': ('is_airsoft_member', 'is_staff', 'is_trainer'),
+        }),
+        ('Дата регистрации', {
+            'fields': ('registered_at',),
+            'classes': ('collapse',),
+        }),
+    )
 
 
 @admin.register(Booking)
@@ -43,9 +61,19 @@ class ReviewAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
 
 
+@admin.register(AirsoftTraining)
+class AirsoftTrainingAdmin(admin.ModelAdmin):
+    list_display = ('id', 'gender', 'week_start', 'status', 'updated_at')
+    list_filter = ('status', 'gender', 'week_start')
+    search_fields = ('week_start',)
+    readonly_fields = ('updated_at',)
+    ordering = ('-week_start', 'gender')
+
+
 @admin.register(AirsoftConfirmation)
 class AirsoftConfirmationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'week_start', 'confirmed', 'created_at')
-    list_filter = ('confirmed', 'week_start')
-    search_fields = ('user__display_name',)
+    list_display = ('id', 'user', 'week_start', 'gender', 'confirmed', 'created_at')
+    list_filter = ('confirmed', 'gender', 'week_start')
+    search_fields = ('user__display_name', 'user__telegram_id')
     readonly_fields = ('created_at',)
+    ordering = ('-week_start', 'gender', 'user')
