@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from django.utils import timezone
 
 from bot_app.models import Booking
@@ -31,15 +31,18 @@ def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list
     if week_start is None:
         week_start = get_current_week_start()
 
+    now = timezone.localtime(timezone.now())
     result = []
-    today = timezone.localdate()
     for day, time_obj in VALID_SLOTS:
         days_ahead = day - week_start.weekday()
         if days_ahead < 0:
             days_ahead += 7
         dt = week_start + timedelta(days=days_ahead)
-        if not show_past and dt < today:
+
+        slot_dt = timezone.make_aware(datetime.combine(dt, time_obj))
+        if not show_past and slot_dt <= now:
             continue
+
         bookings = Booking.objects.filter(
             date=dt, time=time_obj, is_active=True
         ).select_related('user')

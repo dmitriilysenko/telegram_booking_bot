@@ -396,12 +396,18 @@ def airsoft_callback(call: CallbackQuery):
             ),
         )
         return
-    keyboard = (
-        get_airsoft_trainer_keyboard() if user.is_trainer
-        else get_airsoft_member_keyboard()
-    )
+    text, has_upcoming = format_airsoft_text(user)
+    if has_upcoming:
+        keyboard = (
+            get_airsoft_trainer_keyboard() if user.is_trainer
+            else get_airsoft_member_keyboard()
+        )
+    else:
+        keyboard = InlineKeyboardMarkup().add(
+            InlineKeyboardButton('🏠 Главное меню', callback_data='nav_main'),
+        )
     bot.edit_message_text(
-        format_airsoft_text(user),
+        text,
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
         reply_markup=keyboard,
@@ -435,14 +441,20 @@ def airsoft_confirm(call: CallbackQuery):
         user=user, week_start=week_start, gender=user.gender,
         defaults={'confirmed': confirmed},
     )
+    text, has_upcoming = format_airsoft_text(user)
+    keyboard = (
+        get_airsoft_member_keyboard() if has_upcoming
+        else InlineKeyboardMarkup().add(
+            InlineKeyboardButton('🏠 Главное меню', callback_data='nav_main'),
+        )
+    )
     bot.edit_message_text(
-        format_airsoft_text(user),
+        text,
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
-        reply_markup=get_airsoft_member_keyboard(),
+        reply_markup=keyboard,
         parse_mode='Markdown',
     )
-
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('trainer_'))
 def trainer_airsoft(call: CallbackQuery):
@@ -459,10 +471,17 @@ def trainer_airsoft(call: CallbackQuery):
     )
     training.status = 'confirmed' if intent == 'yes' else 'cancelled'
     training.save(update_fields=('status', 'updated_at'))
+    text, has_upcoming = format_airsoft_text(user)
+    keyboard = (
+        get_airsoft_trainer_keyboard() if has_upcoming
+        else InlineKeyboardMarkup().add(
+            InlineKeyboardButton('🏠 Главное меню', callback_data='nav_main'),
+        )
+    )
     bot.edit_message_text(
-        format_airsoft_text(user),
+        text,
         chat_id=call.message.chat.id,
         message_id=call.message.message_id,
-        reply_markup=get_airsoft_trainer_keyboard(),
+        reply_markup=keyboard,
         parse_mode='Markdown',
     )
