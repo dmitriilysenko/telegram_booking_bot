@@ -54,9 +54,10 @@ def check_booking_limits(user, dt: date) -> tuple:
     # Проверка: не более 3 записей в неделю
     week_end = week_start + timedelta(days=6)
 
+    today = timezone.localdate()
     week_bookings = Booking.objects.filter(
         user=user,
-        date__gte=week_start,
+        date__gte=max(week_start, today),
         date__lte=week_end,
         is_active=True
     ).count()

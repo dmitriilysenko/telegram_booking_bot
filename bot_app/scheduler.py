@@ -69,10 +69,25 @@ def send_airsoft_boys():
 def send_airsoft_girls():
     send_airsoft_reminder('F')
 
+def deactivate_past_bookings() -> int:
+    """
+    Гасит is_active у записей, дата которых уже прошла.
+    Возвращает количество погашенных записей.
+    """
+    today = timezone.localdate()
+    updated = Booking.objects.filter(
+        is_active=True,
+        date__lt=today,
+    ).update(is_active=False)
+    if updated:
+        logger.info(f'🧹 Погашено прошедших записей: {updated}')
+    return updated
 
 def start_scheduler():
     scheduler = BackgroundScheduler()
     scheduler.add_jobstore(DjangoJobStore(), 'default')
+
+    deactivate_past_bookings()
 
     reminders = [
         (11, 0, 11, 30), (11, 30, 12, 0), (16, 40, 17, 10),
@@ -89,6 +104,12 @@ def start_scheduler():
     scheduler.add_job(
         send_daily_schedule, trigger=CronTrigger(hour=17, minute=0),
         id='daily_schedule', replace_existing=True,
+    )
+    scheduler.add_job(
+        deactivate_past_bookings,
+        trigger=CronTrigger(hour=0, minute=5),
+        id='deactivate_past_bookings',
+        replace_existing=True,
     )
     scheduler.add_job(
         send_airsoft_boys, trigger=CronTrigger(day_of_week='fri', hour=12, minute=0),
