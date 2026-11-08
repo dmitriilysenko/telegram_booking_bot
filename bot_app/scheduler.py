@@ -5,9 +5,10 @@ from django_apscheduler.jobstores import DjangoJobStore
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from .models import Booking, User
-from .core import bot, logger, GROUP_CHAT_ID, format_mention
-from .config import WEEKDAY_NAMES
-from .services.schedule import format_schedule_text
+from .core import bot, logger, GROUP_CHAT_ID, format_mention, BOT_LINK
+from .config import WEEKDAY_NAMES, BOOKING_OPEN_HOUR
+from .services.schedule import format_schedule_text, get_current_week_start, \
+    get_week_range
 
 
 def send_reminder(slot_hour: int, slot_minute: int):
@@ -89,6 +90,24 @@ def deactivate_past_bookings() -> int:
         logger.info(f'🧹 Погашено прошедших записей: {updated}')
     return updated
 
+def send_booking_open_notification():
+    """Уведомление в группу: запись на неделю открыта."""
+    if not GROUP_CHAT_ID:
+        return
+    week_start = get_current_week_start()
+    week_range = get_week_range(week_start)
+    text = (
+        f'🔔 *Запись открыта!*\n\n'
+        f'📅 Неделя {week_range}\n'
+        f'⏰ Записаться можно с {BOOKING_OPEN_HOUR}:00\n\n'
+        f'✏️ {BOT_LINK}'
+    )
+    try:
+        bot.send_message(GROUP_CHAT_ID, text, parse_mode='Markdown')
+        logger.info('✅ Уведомление об открытии записи отправлено')
+    except Exception as e:
+        logger.error(f'❌ Уведомление об открытии записи: {e}')
+
 def start_scheduler():
     scheduler = BackgroundScheduler()
     scheduler.add_jobstore(DjangoJobStore(), 'default')
@@ -124,6 +143,12 @@ def start_scheduler():
     scheduler.add_job(
         send_airsoft_girls, trigger=CronTrigger(day_of_week='thu', hour=12, minute=0),
         id='airsoft_girls', replace_existing=True,
+    )
+    scheduler.add_job(
+        send_booking_open_notification,
+        trigger=CronTrigger(day_of_week='mon', hour=BOOKING_OPEN_HOUR, minute=0),
+        id='booking_open_notification',
+        replace_existing=True,
     )
 
     scheduler.start()

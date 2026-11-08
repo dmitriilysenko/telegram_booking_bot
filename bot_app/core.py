@@ -10,7 +10,7 @@ apihelper.ENABLE_MIDDLEWARE = True
 
 logger = logging.getLogger(__name__)
 
-GROUP_CHAT_ID = getattr(settings, 'TEST_GROUP_CHAT_ID', None)
+GROUP_CHAT_ID = getattr(settings, 'GROUP_CHAT_ID', None)
 BOT_LINK = getattr(settings, 'BOT_LINK', '')
 
 
