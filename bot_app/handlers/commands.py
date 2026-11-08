@@ -209,6 +209,17 @@ def book_command(message: Message):
 
     available = [s for s in slots if s['is_available']]
 
+    today = timezone.localdate()
+    if today.weekday() >= 5:
+        text = f"😴 В выходные записи нет."
+        keyboard = get_navigation_keyboard()
+        bot.send_message(
+            message.chat.id,
+            text,
+            reply_markup=keyboard
+        )
+        return
+
     if not available:
         text = f"😞 На неделе {week_range} нет свободных мест."
         keyboard = get_navigation_keyboard()

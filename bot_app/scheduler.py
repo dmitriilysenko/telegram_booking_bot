@@ -108,7 +108,7 @@ def start_scheduler():
         )
 
     scheduler.add_job(
-        send_daily_schedule, trigger=CronTrigger(hour=17, minute=0),
+        send_daily_schedule, trigger=CronTrigger(hour=17, minute=30),
         id='daily_schedule', replace_existing=True,
     )
     scheduler.add_job(
