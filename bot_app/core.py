@@ -2,9 +2,11 @@ import logging
 from django.conf import settings
 from functools import lru_cache
 from django.core.exceptions import ImproperlyConfigured
-from telebot import TeleBot
+from telebot import TeleBot, apihelper
 from telebot.handler_backends import BaseMiddleware
 
+
+apihelper.ENABLE_MIDDLEWARE = True
 
 logger = logging.getLogger(__name__)
 
