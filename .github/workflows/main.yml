@@ -5,6 +5,13 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   build_and_push:
     runs-on: ubuntu-24.04
@@ -61,6 +68,7 @@ jobs:
             sudo docker compose -f docker-compose.production.yml down
             sudo docker compose -f docker-compose.production.yml up -d
             sudo docker compose -f docker-compose.production.yml exec -T backend python manage.py collectstatic --noinput
+
   send_message:
     needs: deploy
     runs-on: ubuntu-24.04
@@ -77,3 +85,32 @@ jobs:
             Коммит: ${{ github.event.head_commit.message }}
             Ссылка: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
             Время: ${{ github.event.head_commit.timestamp }}
+
+  tag:
+    needs: deploy
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump patch and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          LAST=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          LAST=${LAST:-v0.0.0}
+          echo "Last tag: $LAST"
+
+          V=${LAST#v}
+          MAJOR=${V%%.*}; REST=${V#*.}
+          MINOR=${REST%%.*}; PATCH=${REST#*.}
+
+          NEW="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+          echo "New tag: $NEW"
+
+          git tag -a "$NEW" -m "Release $NEW"
+          git push origin "$NEW"

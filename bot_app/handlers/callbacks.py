@@ -302,6 +302,7 @@ def confirm_cancel_callback(call: CallbackQuery):
 def review_callback(call: CallbackQuery):
     """Кнопка «Отзыв» -> ждём текст (FSM, 1 шаг)."""
     bot.answer_callback_query(call.id)
+    bot.clear_step_handler_by_chat_id(call.message.chat.id)
     msg = bot.send_message(call.message.chat.id, '✍️ Напиши отзыв о работе бота:')
     bot.register_next_step_handler(msg, save_review)
 
@@ -325,6 +326,7 @@ def save_review(message):
 def profile_edit_name(call: CallbackQuery):
     """Кнопка «Изменить имя» -> ждём новое имя (FSM, 1 шаг)."""
     bot.answer_callback_query(call.id)
+    bot.clear_step_handler_by_chat_id(call.message.chat.id)
     msg = bot.send_message(call.message.chat.id, 'Введи новое имя для расписания:')
     bot.register_next_step_handler(msg, save_display_name)
 

@@ -62,11 +62,22 @@ def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list
     return result
 
 
-def format_schedule_text(week_start: date = None) -> str:
+def format_schedule_text(week_start: date = None, show_past: bool = False) -> str:
+    """
+    Возвращает текст расписания на текущую (или указанную) неделю.
+    show_past=False — только будущие слоты (по умолчанию, для кнопки и уведомлений).
+    show_past=True  — включая прошедшие (для админских/архивных задач).
+    """
     if week_start is None:
         week_start = get_current_week_start()
     week_range = get_week_range(week_start)
-    slots = get_slots_for_week(week_start, show_past=True)
+    slots = get_slots_for_week(week_start, show_past=show_past)
+
+    if not slots:
+        return (
+            f'📅 *Расписание на неделю {week_range}*\n\n'
+            f'На этой неделе больше нет доступных слотов.'
+        )
 
     grouped = {}
     for slot in slots:

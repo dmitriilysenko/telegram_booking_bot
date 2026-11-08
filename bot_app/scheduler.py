@@ -37,8 +37,14 @@ def send_reminder(slot_hour: int, slot_minute: int):
 def send_daily_schedule():
     if not GROUP_CHAT_ID:
         return
+
+    today = timezone.localdate()
+    if today.weekday() >= 5:
+        logger.info('ℹ️ Выходной — расписание не отправляем')
+        return
+
     try:
-        text = format_schedule_text()
+        text = format_schedule_text(show_past=False)
         bot.send_message(GROUP_CHAT_ID, text, parse_mode='Markdown')
         logger.info('✅ Дневное расписание отправлено')
     except Exception as e:

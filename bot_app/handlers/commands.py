@@ -10,7 +10,8 @@ from bot_app.models import User, Booking, Review
 from bot_app.core import bot, logger, is_admin
 from bot_app.config import WEEKDAY_NAMES, BOOKING_OPEN_HOUR
 from bot_app.services.schedule import (
-get_week_range, get_slots_for_week, get_current_week_start, format_slot
+get_week_range, get_slots_for_week,
+get_current_week_start, format_schedule_text
 )
 from bot_app.keyboards import (
     get_navigation_keyboard, get_registration_keyboard, get_registration_text,
@@ -128,40 +129,21 @@ def main_command(message: Message):
 
 @bot.message_handler(commands=['schedule'])
 def schedule_command(message: Message):
-    """Показывает расписание на текущую неделю с кнопкой записи"""
     week_start = get_current_week_start()
     week_range = get_week_range(week_start)
 
-    # Показываем только будущие и сегодняшние слоты
     slots = get_slots_for_week(week_start, show_past=False)
 
     if not slots:
-        text = f"📅 На неделе {week_range} больше нет доступных слотов.\n\nСледующая неделя откроется в понедельник в {BOOKING_OPEN_HOUR}:00."
-        keyboard = get_navigation_keyboard()
-        bot.send_message(
-            message.chat.id,
-            text,
-            reply_markup=keyboard
+        text = (
+            f"📅 На неделе {week_range} больше нет доступных слотов.\n\n"
+            f"Следующая неделя откроется в понедельник в {BOOKING_OPEN_HOUR}:00."
         )
+        keyboard = get_navigation_keyboard()
+        bot.send_message(message.chat.id, text, reply_markup=keyboard)
         return
 
-    grouped = {}
-    for slot in slots:
-        day_name = slot['day_name']
-        if day_name not in grouped:
-            grouped[day_name] = []
-        grouped[day_name].append(slot)
-
-    text = f"📅 Расписание на неделю {week_range}\n\n"
-
-    for day_name, day_slots in grouped.items():
-        text += f'📍 {day_name}\n'
-        for slot in day_slots:
-            line = f'  {format_slot(slot)}'
-            if slot['names']:
-                line += f' — {", ".join(slot["names"])}'
-            text += line + '\n'
-        text += '\n'
+    text = format_schedule_text(week_start=week_start, show_past=False)
 
     # Информация о времени открытия записи
     monday_open = timezone.make_aware(
@@ -170,26 +152,20 @@ def schedule_command(message: Message):
         )
     )
     now = timezone.localtime(timezone.now())
-
     if now < monday_open:
         text += f"\n⏳ Запись откроется в *понедельник в {BOOKING_OPEN_HOUR}:00*"
     else:
-        text += f"\n✅ Запись открыта! Используй кнопку ниже."
+        text += "\n✅ Запись открыта!"
 
     keyboard = InlineKeyboardMarkup(row_width=2)
     keyboard.add(
         InlineKeyboardButton("📝 Записаться", callback_data="book"),
-        InlineKeyboardButton("📋 Мои записи", callback_data="nav_my_bookings")
+        InlineKeyboardButton("📋 Мои записи", callback_data="nav_my_bookings"),
     )
-    keyboard.add(
-        InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main")
-    )
+    keyboard.add(InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main"))
 
     bot.send_message(
-        message.chat.id,
-        text,
-        parse_mode="Markdown",
-        reply_markup=keyboard
+        message.chat.id, text, parse_mode="Markdown", reply_markup=keyboard,
     )
 
 

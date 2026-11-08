@@ -3,6 +3,7 @@ from django.conf import settings
 from functools import lru_cache
 from django.core.exceptions import ImproperlyConfigured
 from telebot import TeleBot
+from telebot.handler_backends import BaseMiddleware
 
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,18 @@ def get_bot():
     return TeleBot(token)
 
 bot = get_bot()
+
+class FsmResetMiddleware(BaseMiddleware):
+    def __init__(self):
+        self.update_types = ['callback_query']
+        super().__init__()
+    def pre_process(self, call, data):
+        bot.clear_step_handler_by_chat_id(call.message.chat.id)
+        return None
+    def post_process(self, call, data, exception):
+        return None
+
+bot.setup_middleware(FsmResetMiddleware())
 
 def format_mention(user):
     """Форматирует упоминание пользователя для HTML-разметки"""
