@@ -15,7 +15,13 @@ class User(models.Model):
         blank=True, default='', verbose_name='Пол',
     )
     is_airsoft_member = models.BooleanField(
-        default=False, verbose_name='Состоит в airsoft-группе'
+        default=False, verbose_name='Airsoft'
+    )
+    position = models.CharField(
+        max_length=150, blank=True, default='', verbose_name='Должность',
+    )
+    birth_date = models.DateField(
+        null=True, blank=True, verbose_name='Дата рождения',
     )
     is_staff = models.BooleanField(default=False, verbose_name='Админ')
     is_trainer = models.BooleanField(default=False, verbose_name='Тренер')

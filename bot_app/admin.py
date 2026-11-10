@@ -8,8 +8,9 @@ from .models import (
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'telegram_id', 'display_name', 'gender',
-        'is_airsoft_member', 'is_staff', 'is_trainer', 'registered_at',
+        'id', 'telegram_id', 'display_name', 'username', 'first_name', 'last_name',
+        'position', 'gender',
+        'is_airsoft_member', 'is_staff', 'is_trainer',
     )
     list_filter = ('is_airsoft_member', 'gender', 'is_staff', 'is_trainer')
     search_fields = ('telegram_id', 'username', 'display_name', 'first_name', 'last_name')
@@ -20,7 +21,7 @@ class UserAdmin(admin.ModelAdmin):
         ('Основная информация', {
             'fields': (
                 'telegram_id', 'username', 'first_name', 'last_name',
-                'display_name', 'gender',
+                'display_name', 'position', 'birth_date', 'gender',
             ),
         }),
         ('Флаги', {

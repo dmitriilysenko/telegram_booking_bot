@@ -69,10 +69,16 @@ def profile_command(message: Message):
     user = get_user_from_message(message)
     if not user:
         return
+    if user.is_trainer:
+        status = 'Тренер'
+    else:
+        status = (
+            'Стрелок IPSC и PCP' if user.is_airsoft_member else 'Стрелок PCP')
     text = (
         f'👤 *Личный кабинет*\n\n'
         f'Имя: {user.display_name}\n'
         f'Username: @{user.username or "—"}\n'
+        f'Статус: {status}\n'
         f'Airsoft: {"✅" if user.is_airsoft_member else "❌"}\n'
         f'Пол: {"👦" if user.gender == "M" else "👧" if user.gender == "F" else "—"}\n'
     )
