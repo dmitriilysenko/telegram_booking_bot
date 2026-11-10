@@ -3,6 +3,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from django_apscheduler.jobstores import DjangoJobStore
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import time
 
 from .models import Booking, User
 from .core import bot, logger, GROUP_CHAT_ID, format_mention, BOT_LINK
@@ -11,27 +12,39 @@ from .services.schedule import format_schedule_text, get_current_week_start, \
     get_week_range
 
 
-def send_reminder(slot_hour: int, slot_minute: int):
+def send_reminder_group(slot_times: tuple):
+    """
+    Одно уведомление на несколько слотов.
+    slot_times — кортеж time(h, m), например (time(11,30), time(11,45), time(12,0)).
+    """
     if not GROUP_CHAT_ID:
         return
     today = timezone.localdate()
-    bookings = Booking.objects.filter(
-        date=today, time__hour=slot_hour, time__minute=slot_minute, is_active=True
-    ).select_related('user')
-    if not bookings:
-        logger.info(f'ℹ️ Нет записей на {slot_hour:02d}:{slot_minute:02d}')
-        return
-    names = [format_mention(b.user) for b in bookings]
     day_name = WEEKDAY_NAMES[today.weekday()]
-    slot_time = f'{slot_hour:02d}:{slot_minute:02d}'
-    text = (
-        f'⏰ Напоминание!\n\nЧерез 30 минут занятие:\n'
-        f'📅 {day_name} {today.strftime("%d.%m")}\n⏰ {slot_time}\n\n'
-        f'👤 Записаны: {", ".join(names)}'
-    )
+
+    lines = ['⏰ <b>Напоминание!</b>', f'📅 {day_name} {today.strftime("%d.%m")}', '']
+    has_any = False
+
+    for t in slot_times:
+        bookings = Booking.objects.filter(
+            date=today, time=t, is_active=True,
+        ).select_related('user')
+        if not bookings:
+            continue
+        has_any = True
+        mentions = ', '.join(format_mention(b.user) for b in bookings)
+        lines.append(mentions)
+        lines.append(f'⏰ {t.strftime("%H:%M")}')
+        lines.append('')
+
+    if not has_any:
+        logger.info(f'ℹ️ Нет записей на {[t.strftime("%H:%M") for t in slot_times]}')
+        return
+
+    text = '\n'.join(lines).strip()
     try:
-        bot.send_message(GROUP_CHAT_ID, text)
-        logger.info(f'✅ Напоминание на {slot_time}')
+        bot.send_message(GROUP_CHAT_ID, text, parse_mode='HTML')
+        logger.info(f'✅ Напоминание на {[t.strftime("%H:%M") for t in slot_times]}')
     except Exception as e:
         logger.error(f'❌ {e}')
 
@@ -114,17 +127,21 @@ def start_scheduler():
 
     deactivate_past_bookings()
 
-    reminders = [
-        (11, 0, 11, 30), (11, 30, 12, 0), (16, 40, 17, 10),
-    ]
-    for remind_h, remind_m, schedule_h, schedule_m in reminders:
-        scheduler.add_job(
-            send_reminder,
-            trigger=CronTrigger(hour=remind_h, minute=remind_m),
-            args=[schedule_h, schedule_m],
-            id=f'reminder_{remind_h:02d}_{remind_m:02d}',
-            replace_existing=True,
-        )
+    scheduler.add_job(
+        send_reminder_group,
+        trigger=CronTrigger(hour=11, minute=0),
+        args=[(time(11, 30), time(11, 45), time(12, 0))],
+        id='reminder_morning',
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        send_reminder_group,
+        trigger=CronTrigger(hour=16, minute=40),
+        args=[(time(17, 10),)],
+        id='reminder_evening',
+        replace_existing=True,
+    )
 
     scheduler.add_job(
         send_daily_schedule, trigger=CronTrigger(hour=17, minute=30),

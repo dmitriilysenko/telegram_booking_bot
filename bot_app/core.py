@@ -36,10 +36,9 @@ class FsmResetMiddleware(BaseMiddleware):
 bot.setup_middleware(FsmResetMiddleware())
 
 def format_mention(user):
-    """Форматирует упоминание пользователя для HTML-разметки"""
-    if user.username:
-        return f'@{user.username}'
-    return f'{user.first_name} {user.last_name or ""}'.strip()
+    """Упоминание через HTML-ссылку — работает и без username."""
+    name = user.display_name or user.first_name or f'ID {user.telegram_id}'
+    return f'<a href="tg://user?id={user.telegram_id}">{name}</a>'
 
 def is_admin(user):
     return bool(user and user.is_staff)

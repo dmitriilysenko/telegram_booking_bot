@@ -6,8 +6,9 @@ class User(models.Model):
     username = models.CharField(max_length=150, blank=True, null=True, verbose_name="Username")
     first_name = models.CharField(max_length=150, verbose_name="Имя")
     last_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="Фамилия")
+    patronymic = models.CharField(max_length=150, blank=True, null=True, verbose_name="Отчество")
     display_name = models.CharField(
-        max_length=150, blank=True, default='', verbose_name='Отображаемое имя'
+        max_length=150, blank=True, default='', verbose_name='Никнейм'
     )
     gender = models.CharField(
         max_length=1,
