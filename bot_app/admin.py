@@ -8,8 +8,8 @@ from .models import (
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'telegram_id', 'display_name', 'username', 'first_name', 'last_name',
-        'position', 'gender',
+        'id', 'telegram_id', 'display_name', 'username',
+        'first_name', 'last_name', 'patronymic', 'position', 'gender',
         'is_airsoft_member', 'is_staff', 'is_trainer',
     )
     list_filter = ('is_airsoft_member', 'gender', 'is_staff', 'is_trainer')
