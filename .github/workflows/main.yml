@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release
+  group: release-v2
   cancel-in-progress: false
 
 jobs:
