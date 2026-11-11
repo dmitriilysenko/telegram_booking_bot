@@ -19,7 +19,7 @@ def get_bot():
     token = getattr(settings, 'BOT_TOKEN', None)
     if not token:
         raise ImproperlyConfigured('BOT_TOKEN не найден в .env')
-    return TeleBot(token)
+    return TeleBot(token, use_class_middlewares=True)
 
 bot = get_bot()
 

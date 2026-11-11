@@ -114,7 +114,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 TEST_GROUP_CHAT_ID = os.getenv('TEST_GROUP_CHAT_ID')
-GROUP_CHAT_ID = os.getenv('GROUP_CHAT_ID', TEST_GROUP_CHAT_ID)
+GROUP_CHAT_ID = os.getenv('TEST_GROUP_CHAT_ID', TEST_GROUP_CHAT_ID)
 BOT_LINK = os.getenv('BOT_LINK')
 
 # Email
