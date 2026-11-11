@@ -110,6 +110,15 @@ class AirsoftTraining(models.Model):
         verbose_name='Статус',
     )
     updated_at = models.DateTimeField(auto_now=True)
+    cancelled_by = models.ForeignKey(
+        'User', null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='airsoft_cancellations',
+        verbose_name='Кто отменил',
+    )
+    cancelled_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='Когда отменил',
+    )
 
     def __str__(self):
         return f'{self.get_gender_display()} — {self.week_start} — {self.get_status_display()}'

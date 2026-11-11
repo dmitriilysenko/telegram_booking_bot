@@ -23,6 +23,9 @@ def _training_dt(week_start, gender):
         )
     )
 
+def get_training_dt(week_start, gender):
+    """Публичная обёртка: aware datetime тренировки."""
+    return _training_dt(week_start, gender)
 
 def format_airsoft_text(user):
     """

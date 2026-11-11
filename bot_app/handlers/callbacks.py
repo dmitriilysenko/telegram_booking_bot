@@ -28,6 +28,7 @@ from bot_app.services.airsoft import format_airsoft_text
 from bot_app.services.schedule import get_current_week_start
 from bot_app.services.booking import check_booking_limits
 from .commands import book_command, get_user_from_message
+from bot_app.scheduler import schedule_cancellation_notification
 
 
 def parse_booking_callback_data(data: str):
@@ -468,19 +469,34 @@ def airsoft_confirm(call: CallbackQuery):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('trainer_'))
 def trainer_airsoft(call: CallbackQuery):
-    """Тренер: trainer_{F/M}_{yes/no} — статус тренировки."""
     bot.answer_callback_query(call.id)
     user = get_user_from_callback(call)
     if not user or not user.is_trainer:
         return
-    _, gender, intent = call.data.split('_')  # trainer_F_yes
+
+    _, gender, intent = call.data.split('_')
     today = timezone.localdate()
     week_start = today - timedelta(days=today.weekday())
+
     training, _ = AirsoftTraining.objects.get_or_create(
         gender=gender, week_start=week_start,
     )
-    training.status = 'confirmed' if intent == 'yes' else 'cancelled'
-    training.save(update_fields=('status', 'updated_at'))
+    if intent == 'yes':
+        training.status = 'confirmed'
+        training.cancelled_by = None
+        training.cancelled_at = None
+    else:
+        training.status = 'cancelled'
+        training.cancelled_by = user
+        training.cancelled_at = timezone.now()
+    training.save(update_fields=(
+        'status', 'cancelled_by', 'cancelled_at', 'updated_at',
+    ))
+
+    if intent == 'no':
+        schedule_cancellation_notification(
+            gender, week_start, user.telegram_id,
+        )
     text, has_upcoming = format_airsoft_text(user)
     keyboard = (
         get_airsoft_trainer_keyboard() if has_upcoming

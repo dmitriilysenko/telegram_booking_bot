@@ -1,15 +1,27 @@
+from datetime import datetime, time, timedelta
+
 from django.utils import timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from django_apscheduler.jobstores import DjangoJobStore
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from datetime import time
 
-from .models import Booking, User
-from .core import bot, logger, GROUP_CHAT_ID, format_mention, BOT_LINK
-from .config import WEEKDAY_NAMES, BOOKING_OPEN_HOUR
-from .services.schedule import format_schedule_text, get_current_week_start, \
-    get_week_range
+from .models import Booking, User, AirsoftTraining, AirsoftConfirmation
+from .core import bot, logger, GROUP_CHAT_ID, BOT_LINK, format_mention
+from .config import (
+    WEEKDAY_NAMES, BOOKING_OPEN_HOUR, SLOTS_BY_DAY,
+)
+from .services.schedule import (
+    format_schedule_text, format_slot,
+    get_current_week_start, get_week_range, get_slots_for_week,
+)
+from .services.airsoft import get_training_dt
+
+
+_scheduler = None
+
+CANCELLATION_DELAY_MINUTES = 10
 
 
 def send_reminder_group(slot_times: tuple):
@@ -66,7 +78,31 @@ def send_daily_schedule():
 
 
 def send_airsoft_reminder(gender: str):
-    users = User.objects.filter(is_airsoft_member=True, gender=gender)
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+
+    training = AirsoftTraining.objects.filter(
+        gender=gender, week_start=week_start,
+    ).first()
+
+    # Тренировка отменена → опрос не шлём (уведомление об отмене — отдельно)
+    if not training or training.status == 'cancelled':
+        logger.info(f'ℹ️ Airsoft {gender}: тренировка отменена/нет — опрос не шлём')
+        return
+
+    # Кто уже ответил (нажал ✅ или ❌) — исключаем
+    answered_ids = AirsoftConfirmation.objects.filter(
+        week_start=week_start, gender=gender,
+    ).values_list('user_id', flat=True)
+
+    users = User.objects.filter(
+        is_airsoft_member=True, gender=gender,
+    ).exclude(id__in=answered_ids)
+
+    if not users.exists():
+        logger.info(f'ℹ️ Airsoft {gender}: все уже ответили — пропускаем')
+        return
+
     keyboard = InlineKeyboardMarkup().add(
         InlineKeyboardButton('✅ Да', callback_data='airsoft_yes'),
         InlineKeyboardButton('❌ Нет', callback_data='airsoft_no'),
@@ -81,6 +117,17 @@ def send_airsoft_reminder(gender: str):
         except Exception as e:
             logger.error(f'❌ {user}: {e}')
 
+def create_weekly_airsoft_trainings():
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+    for gender in ('M', 'F'):
+        _, created = AirsoftTraining.objects.get_or_create(
+            gender=gender, week_start=week_start,
+            defaults={'status': 'pending'},
+        )
+        if created:
+            logger.info(f'🆕 AirsoftTraining: {gender} — {week_start}')
+
 
 def send_airsoft_boys():
     send_airsoft_reminder('M')
@@ -88,6 +135,66 @@ def send_airsoft_boys():
 
 def send_airsoft_girls():
     send_airsoft_reminder('F')
+
+def schedule_cancellation_notification(
+    gender: str, week_start, cancelled_by_telegram_id: int,
+):
+    """Ставит job через 10 минут после отмены."""
+    if _scheduler is None:
+        logger.error('⚠️ Планировщик не запущен — отмена не будет разослана')
+        return
+    run_at = timezone.now() + timedelta(minutes=CANCELLATION_DELAY_MINUTES)
+    job_id = f'airsoft_cancel_{gender}_{week_start.isoformat()}'
+    _scheduler.add_job(
+        send_cancellation_notification,
+        trigger=DateTrigger(run_date=run_at),
+        args=[gender, week_start, cancelled_by_telegram_id],
+        id=job_id,
+        replace_existing=True,
+    )
+    logger.info(f'⏳ Отложено уведомление об отмене {gender} на {run_at}')
+
+
+def send_cancellation_notification(
+    gender: str, week_start, cancelled_by_telegram_id: int,
+):
+    """Шлёт уведомление об отмене, если тренировка всё ещё cancelled."""
+    training = AirsoftTraining.objects.filter(
+        gender=gender, week_start=week_start,
+    ).first()
+
+    if not training or training.status != 'cancelled':
+        logger.info(f'ℹ️ Airsoft {gender}: отмена отменена — уведомление не шлём')
+        return
+
+    trainers = User.objects.filter(is_trainer=True).exclude(
+        telegram_id=cancelled_by_telegram_id,
+    )
+    members = User.objects.filter(is_airsoft_member=True, gender=gender)
+
+    recipients = set(trainers.values_list('telegram_id', flat=True))
+    recipients |= set(members.values_list('telegram_id', flat=True))
+
+    if not recipients:
+        logger.info(f'ℹ️ Airsoft {gender}: получателей нет — пропускаем')
+        return
+
+    dt = get_training_dt(week_start, gender)
+    weekday = WEEKDAY_NAMES[dt.weekday()]
+    gender_label = 'парней' if gender == 'M' else 'девушек'
+    text = (
+        f'❌ *Тренер отменил тренировку по airsoft*\n\n'
+        f'Группа: {gender_label}\n'
+        f'Когда: {weekday} {dt.strftime("%d.%m %H:%M")}'
+    )
+
+    for telegram_id in recipients:
+        try:
+            bot.send_message(telegram_id, text, parse_mode='Markdown')
+        except Exception as e:
+            logger.error(f'❌ Уведомление об отмене {telegram_id}: {e}')
+
+    logger.info(f'✅ Уведомление об отмене {gender} отправлено {len(recipients)}')
 
 def deactivate_past_bookings() -> int:
     """
@@ -122,20 +229,23 @@ def send_booking_open_notification():
         logger.error(f'❌ Уведомление об открытии записи: {e}')
 
 def start_scheduler():
-    scheduler = BackgroundScheduler()
-    scheduler.add_jobstore(DjangoJobStore(), 'default')
+    global _scheduler
+    _scheduler = BackgroundScheduler()
+    _scheduler.add_jobstore(DjangoJobStore(), 'default')
 
+    # Разово при старте — подчистить накопленное
     deactivate_past_bookings()
 
-    scheduler.add_job(
+    # Утренние слоты — одно уведомление в 11:00
+    _scheduler.add_job(
         send_reminder_group,
         trigger=CronTrigger(hour=11, minute=0),
         args=[(time(11, 30), time(11, 45), time(12, 0))],
         id='reminder_morning',
         replace_existing=True,
     )
-
-    scheduler.add_job(
+    # Вечерний слот — отдельно в 16:40
+    _scheduler.add_job(
         send_reminder_group,
         trigger=CronTrigger(hour=16, minute=40),
         args=[(time(17, 10),)],
@@ -143,33 +253,54 @@ def start_scheduler():
         replace_existing=True,
     )
 
-    scheduler.add_job(
-        send_daily_schedule, trigger=CronTrigger(hour=17, minute=30),
-        id='daily_schedule', replace_existing=True,
+    # Дневное расписание
+    _scheduler.add_job(
+        send_daily_schedule,
+        trigger=CronTrigger(hour=17, minute=0),
+        id='daily_schedule',
+        replace_existing=True,
     )
-    scheduler.add_job(
+
+    # Гашение прошедших записей
+    _scheduler.add_job(
         deactivate_past_bookings,
         trigger=CronTrigger(hour=0, minute=5),
         id='deactivate_past_bookings',
         replace_existing=True,
     )
-    scheduler.add_job(
-        send_airsoft_boys, trigger=CronTrigger(day_of_week='fri', hour=12, minute=0),
-        id='airsoft_boys', replace_existing=True,
+
+    # Автосоздание airsoft-тренировок — понедельник, вместе с открытием записи
+    _scheduler.add_job(
+        create_weekly_airsoft_trainings,
+        trigger=CronTrigger(day_of_week='mon', hour=BOOKING_OPEN_HOUR, minute=0),
+        id='create_weekly_airsoft_trainings',
+        replace_existing=True,
     )
-    scheduler.add_job(
-        send_airsoft_girls, trigger=CronTrigger(day_of_week='thu', hour=12, minute=0),
-        id='airsoft_girls', replace_existing=True,
+
+    # Airsoft-опросы
+    _scheduler.add_job(
+        send_airsoft_boys,
+        trigger=CronTrigger(day_of_week='fri', hour=12, minute=0),
+        id='airsoft_boys',
+        replace_existing=True,
     )
-    scheduler.add_job(
+    _scheduler.add_job(
+        send_airsoft_girls,
+        trigger=CronTrigger(day_of_week='thu', hour=12, minute=0),
+        id='airsoft_girls',
+        replace_existing=True,
+    )
+
+    # Уведомление об открытии записи — понедельник
+    _scheduler.add_job(
         send_booking_open_notification,
         trigger=CronTrigger(day_of_week='mon', hour=BOOKING_OPEN_HOUR, minute=0),
         id='booking_open_notification',
         replace_existing=True,
     )
 
-    scheduler.start()
+    _scheduler.start()
     logger.info('✅ Планировщик запущен!')
-    for job in scheduler.get_jobs():
+    for job in _scheduler.get_jobs():
         logger.info(f'  📅 {job.id} — {job.trigger}')
-    return scheduler
+    return _scheduler
