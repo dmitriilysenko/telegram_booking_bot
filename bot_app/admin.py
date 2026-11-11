@@ -20,8 +20,9 @@ class UserAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Основная информация', {
             'fields': (
-                'telegram_id', 'username', 'first_name', 'last_name',
-                'display_name', 'position', 'birth_date', 'gender',
+                'telegram_id', 'username', 'last_name', 'first_name',
+                'patronymic', 'display_name', 'position', 'birth_date',
+                'gender',
             ),
         }),
         ('Флаги', {
@@ -56,10 +57,19 @@ class BookingAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'text', 'created_at')
-    search_fields = ('user__display_name', 'text')
+    list_display = ('id', 'user', 'text', 'decision', 'is_active', 'created_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('user__display_name', 'text', 'decision')
     readonly_fields = ('created_at',)
     ordering = ('-created_at',)
+    fieldsets = (
+        ('Отзыв', {
+            'fields': ('user', 'text', 'created_at'),
+        }),
+        ('Модерация', {
+            'fields': ('decision', 'is_active'),
+        }),
+    )
 
 
 @admin.register(AirsoftTraining)

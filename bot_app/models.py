@@ -4,8 +4,8 @@ class User(models.Model):
     """Модель пользователя Telegram"""
     telegram_id = models.BigIntegerField(unique=True, verbose_name="Telegram ID")
     username = models.CharField(max_length=150, blank=True, null=True, verbose_name="Username")
-    first_name = models.CharField(max_length=150, verbose_name="Имя")
     last_name = models.CharField(max_length=150, blank=True, null=True, verbose_name="Фамилия")
+    first_name = models.CharField(max_length=150, verbose_name="Имя")
     patronymic = models.CharField(max_length=150, blank=True, null=True, verbose_name="Отчество")
     display_name = models.CharField(
         max_length=150, blank=True, default='', verbose_name='Никнейм'
@@ -73,6 +73,8 @@ class Review(models.Model):
         related_name='reviews', verbose_name='Пользователь',
     )
     text = models.TextField(verbose_name='Отзыв')
+    decision = models.TextField(verbose_name='Решение', blank=True, default='',)
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата')
 
     def __str__(self):

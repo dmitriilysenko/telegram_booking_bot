@@ -96,7 +96,7 @@ def reviews_command(message: Message):
     if not user or not is_admin(user):
         bot.send_message(message.chat.id, '❌ Нет доступа')
         return
-    reviews = Review.objects.select_related('user')[:20]
+    reviews = Review.objects.filter(is_active=True).select_related('user')[:20]
     if not reviews:
         bot.send_message(message.chat.id, 'Отзывов нет')
         return
