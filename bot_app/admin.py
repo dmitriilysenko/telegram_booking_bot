@@ -60,8 +60,9 @@ class ReviewAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'text', 'decision', 'is_active', 'created_at')
     list_filter = ('is_active', 'created_at')
     search_fields = ('user__display_name', 'text', 'decision')
+    list_editable = ('is_active',)
     readonly_fields = ('created_at',)
-    ordering = ('-created_at',)
+    ordering = ('-is_active', '-created_at')
     fieldsets = (
         ('Отзыв', {
             'fields': ('user', 'text', 'created_at'),
