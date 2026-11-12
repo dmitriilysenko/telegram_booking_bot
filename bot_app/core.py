@@ -6,8 +6,6 @@ from telebot import TeleBot, apihelper
 from telebot.handler_backends import BaseMiddleware
 
 
-apihelper.ENABLE_MIDDLEWARE = True
-
 logger = logging.getLogger(__name__)
 
 GROUP_CHAT_ID = getattr(settings, 'GROUP_CHAT_ID', None)
