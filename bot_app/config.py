@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import date, time
 
 MAX_PEOPLE_PER_SLOT = 2
 
