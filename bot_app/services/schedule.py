@@ -34,35 +34,47 @@ def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list
 
     now = timezone.localtime(timezone.now())
     result = []
+
     for day, time_obj in VALID_SLOTS:
-        dt = week_start + timedelta(days=days_ahead)
-        if (dt, time_obj) in HIDDEN_SLOTS:
-            continue
+        # 1. Сначала вычисляем дату слота
         days_ahead = day - week_start.weekday()
         if days_ahead < 0:
             days_ahead += 7
         dt = week_start + timedelta(days=days_ahead)
 
+        # 2. Пропускаем прошедшие (если show_past=False)
         slot_dt = timezone.make_aware(datetime.combine(dt, time_obj))
         if not show_past and slot_dt <= now:
             continue
 
+        # 3. Считаем записи
         bookings = Booking.objects.filter(
             date=dt, time=time_obj, is_active=True
         ).select_related('user')
         booked_count = bookings.count()
-        is_full = booked_count >= MAX_PEOPLE_PER_SLOT
+
+        # 4. Скрыт ли слот на эту дату?
+        is_hidden = (dt, time_obj) in HIDDEN_SLOTS
+
+        # 5. Скрытый слот считаем недоступным, даже если есть места
+        is_full = booked_count >= MAX_PEOPLE_PER_SLOT or is_hidden
+        free_slots = 0 if is_hidden else (MAX_PEOPLE_PER_SLOT - booked_count)
+
         result.append({
-            'date': dt, 'time': time_obj, 'day': day,
+            'date': dt,
+            'time': time_obj,
+            'day': day,
             'day_name': WEEKDAY_NAMES[day],
             'day_name_short': WEEKDAY_NAMES_SHORT[day],
             'booked_count': booked_count,
             'max_people': MAX_PEOPLE_PER_SLOT,
-            'free_slots': MAX_PEOPLE_PER_SLOT - booked_count,
+            'free_slots': free_slots,
             'is_full': is_full,
             'is_available': not is_full,
+            'is_hidden': is_hidden,   # опционально, для UI
             'names': [b.user.display_name or b.user.first_name for b in bookings],
         })
+
     return result
 
 
