@@ -30,7 +30,9 @@ def nav_main_callback(call: CallbackQuery):
     main_command(fake_message)
 
 
-@bot.message_handler(func=lambda message: True)
+@bot.message_handler(
+    func=lambda message: message.chat.type == 'private'
+)
 def echo_all(message: Message):
     """Ответ на любое сообщение, не являющееся командой"""
     keyboard = get_navigation_keyboard()
