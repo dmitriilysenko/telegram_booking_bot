@@ -16,6 +16,10 @@ VALID_SLOTS = [
     for time_obj in times
 ]
 
+HIDDEN_SLOTS = [
+    (date(2026, 11, 14), time(16, 10)),   # только 14.11
+]
+
 WEEKDAY_NAMES = {
     MONDAY: 'Понедельник',
     TUESDAY: 'Вторник',

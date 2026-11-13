@@ -37,11 +37,11 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'date', 'time', 'is_active', 'created_at')
+    list_display = ('id', 'user', 'date', 'time', 'is_active')
     list_filter = ('is_active', 'date', 'time')
     search_fields = ('user__telegram_id', 'user__display_name', 'user__username')
     readonly_fields = ('created_at',)
-    ordering = ('-date', '-time')
+    ordering = ('-is_active', '-date', '-time')
     actions = ('mark_as_active', 'mark_as_inactive')
 
     @admin.action(description='Активировать')

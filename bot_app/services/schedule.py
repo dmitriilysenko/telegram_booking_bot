@@ -4,7 +4,8 @@ from django.utils import timezone
 from bot_app.models import Booking
 from bot_app.core import BOT_LINK
 from bot_app.config import (
-    MAX_PEOPLE_PER_SLOT, VALID_SLOTS, WEEKDAY_NAMES, WEEKDAY_NAMES_SHORT
+    MAX_PEOPLE_PER_SLOT, VALID_SLOTS, WEEKDAY_NAMES, WEEKDAY_NAMES_SHORT,
+    HIDDEN_SLOTS
 )
 
 
@@ -34,6 +35,9 @@ def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list
     now = timezone.localtime(timezone.now())
     result = []
     for day, time_obj in VALID_SLOTS:
+        dt = week_start + timedelta(days=days_ahead)
+        if (dt, time_obj) in HIDDEN_SLOTS:
+            continue
         days_ahead = day - week_start.weekday()
         if days_ahead < 0:
             days_ahead += 7
