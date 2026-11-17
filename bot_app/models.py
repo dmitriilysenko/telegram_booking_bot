@@ -109,6 +109,7 @@ class AirsoftTraining(models.Model):
         max_length=10, choices=STATUS_CHOICES, default='pending',
         verbose_name='Статус',
     )
+    updated_at = models.DateTimeField(auto_now=True)
     cancelled_by = models.ForeignKey(
         'User', null=True, blank=True,
         on_delete=models.SET_NULL,
