@@ -87,10 +87,21 @@ def confirm_booking_callback(call: CallbackQuery):
     dt, time_obj = parsed
     day = dt.weekday()
 
-    # Слот существует?
     if not is_valid_slot(day, time_obj):
         bot.edit_message_text(
             f'❌ Слот {WEEKDAY_NAMES[day]} {time_obj.strftime("%H:%M")} не существует!',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=get_navigation_keyboard(),
+        )
+        return
+
+    # Проверка: слот ещё не наступил
+    slot_dt = timezone.make_aware(datetime.combine(dt, time_obj))
+    now = timezone.localtime(timezone.now())
+    if slot_dt <= now:
+        bot.edit_message_text(
+            f'❌ Слот {time_obj.strftime("%H:%M")} уже прошёл.',
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=get_navigation_keyboard(),

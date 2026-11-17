@@ -16,6 +16,7 @@ class UserAdmin(admin.ModelAdmin):
     search_fields = ('telegram_id', 'username', 'display_name', 'first_name', 'last_name')
     list_editable = ('is_airsoft_member', 'is_staff', 'is_trainer')
     readonly_fields = ('registered_at',)
+    list_display_links = ('display_name',)
     ordering = ('-registered_at',)
     fieldsets = (
         ('Основная информация', {

@@ -1,5 +1,21 @@
+"""
+Планировщик задач (APScheduler + DjangoJobStore).
+
+Джобы:
+- reminder_checker           — каждые 5 мин: напоминание за 25–35 мин до якорного слота (группа слотов одним сообщением)
+- daily_schedule             — 17:30: расписание в группу
+- deactivate_past_bookings   — каждые 5 мин: гасит is_active у записей, время которых наступило
+- create_weekly_airsoft      — пн 09:00: создаёт AirsoftTraining на текущую неделю
+- booking_open_notification  — пн 09:00: уведомление «Запись открыта!»
+- airsoft_boys               — пт 12:00: опрос парней
+- airsoft_girls              — чт 12:00: опрос девушек
+- + отложенные job'ы отмены airsoft (DateTrigger, создаются из callbacks)
+"""
+
 from datetime import datetime, time, timedelta
 
+from django.conf import settings
+from django.core.cache import cache
 from django.utils import timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -13,24 +29,29 @@ from .config import (
     WEEKDAY_NAMES, BOOKING_OPEN_HOUR, SLOTS_BY_DAY,
 )
 from .services.schedule import (
-    format_schedule_text, format_slot,
-    get_current_week_start, get_week_range, get_slots_for_week,
+    format_schedule_text,
+    get_current_week_start, get_week_range,
 )
 from .services.airsoft import get_training_dt
 
 
 _scheduler = None
-
 CANCELLATION_DELAY_MINUTES = 10
 
 
+# ============================================================
+# НАПОМИНАНИЯ О СЛОТАХ (винтовки)
+# ============================================================
+
 def send_reminder_group(slot_times: tuple):
     """
-    Одно уведомление на несколько слотов.
-    slot_times — кортеж time(h, m), например (time(11,30), time(11,45), time(12,0)).
+    Отправляет ОДНО сообщение на группу слотов.
+    slot_times — кортеж time(h, m), например (11:30, 11:45, 12:00).
+    Внутри фильтрует только те слоты, на которые есть активные записи.
     """
     if not GROUP_CHAT_ID:
         return
+
     today = timezone.localdate()
     day_name = WEEKDAY_NAMES[today.weekday()]
 
@@ -58,15 +79,85 @@ def send_reminder_group(slot_times: tuple):
         bot.send_message(GROUP_CHAT_ID, text, parse_mode='HTML')
         logger.info(f'✅ Напоминание на {[t.strftime("%H:%M") for t in slot_times]}')
     except Exception as e:
-        logger.error(f'❌ {e}')
+        logger.error(f'❌ Напоминание: {e}')
+
+
+def _group_slot_times(slot_times: tuple, max_gap_minutes: int = 60) -> list:
+    """
+    Группирует слоты дня: соседние слоты с разницей ≤ max_gap минут — в одну группу.
+    Пример: (11:30, 11:45, 12:00, 16:10) → [(11:30, 11:45, 12:00), (16:10,)]
+    Первый слот группы — «якорь», по нему считается время напоминания.
+    """
+    if not slot_times:
+        return []
+
+    times = sorted(slot_times)
+    groups = []
+    current = [times[0]]
+
+    for t in times[1:]:
+        prev = current[-1]
+        gap = (t.hour * 60 + t.minute) - (prev.hour * 60 + prev.minute)
+        if gap <= max_gap_minutes:
+            current.append(t)
+        else:
+            groups.append(tuple(current))
+            current = [t]
+
+    groups.append(tuple(current))
+    return groups
+
+
+def check_upcoming_slots_and_remind():
+    """
+    Каждые 5 минут:
+    для каждой группы слотов дня проверяет, не пора ли слать напоминание
+    (за 25–35 минут до ПЕРВОГО слота группы).
+    Защита от дублей — через cache: ключ по дате+времени якоря.
+    """
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+    today_weekday = today.weekday()
+
+    slot_times = SLOTS_BY_DAY.get(today_weekday, ())
+    if not slot_times:
+        return
+
+    for group in _group_slot_times(slot_times):
+        anchor = group[0]
+        anchor_dt = timezone.make_aware(datetime.combine(today, anchor))
+        delta_minutes = (anchor_dt - now).total_seconds() / 60
+
+        # Напоминание — за 25–35 минут до якоря
+        if not (25 <= delta_minutes <= 35):
+            continue
+
+        # Защита от повторной отправки
+        reminder_key = f'reminder_sent_{today.isoformat()}_{anchor.strftime("%H%M")}'
+        if cache.get(reminder_key):
+            logger.debug(f'⏭ {reminder_key}: уже отправлено')
+            continue
+
+        logger.info(
+            f'⏰ Напоминание группа {[t.strftime("%H:%M") for t in group]} '
+            f'(до якоря {int(delta_minutes)} мин)'
+        )
+        send_reminder_group(group)
+        cache.set(reminder_key, 1, timeout=60 * 60)
+
+
+# ============================================================
+# РАСПИСАНИЕ (винтовки)
+# ============================================================
 
 def send_daily_schedule():
+    """17:30 — расписание в группу (только Пн–Пт)."""
     if not GROUP_CHAT_ID:
         return
 
     today = timezone.localdate()
-    if today.weekday() >= 5:
-        logger.info('ℹ️ Выходной — расписание не отправляем')
+    if today.weekday() >= 4:
+        logger.info('ℹ️ Выходной/пятница — расписание не отправляем')
         return
 
     try:
@@ -77,7 +168,40 @@ def send_daily_schedule():
         logger.error(f'❌ Расписание: {e}')
 
 
+def deactivate_past_bookings() -> int:
+    """
+    Гасит is_active у записей, время которых уже наступило:
+    - date < today
+    - date == today и time <= now.time()
+    Возвращает количество погашенных.
+    """
+    from django.db.models import Q
+
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+    current_time = now.time()
+
+    updated = Booking.objects.filter(
+        is_active=True,
+    ).filter(
+        Q(date__lt=today) |
+        Q(date=today, time__lte=current_time)
+    ).update(is_active=False)
+
+    if updated:
+        logger.info(f'🧹 Погашено прошедших записей: {updated} (до {current_time.strftime("%H:%M")})')
+    return updated
+
+
+# ============================================================
+# AIRSOFT
+# ============================================================
+
 def send_airsoft_reminder(gender: str):
+    """
+    Опрос участников группы (gender) о подтверждении airsoft на текущую неделю.
+    Не шлём, если тренировка отменена или уже все ответили.
+    """
     today = timezone.localdate()
     week_start = today - timedelta(days=today.weekday())
 
@@ -85,12 +209,10 @@ def send_airsoft_reminder(gender: str):
         gender=gender, week_start=week_start,
     ).first()
 
-    # Тренировка отменена → опрос не шлём (уведомление об отмене — отдельно)
     if not training or training.status == 'cancelled':
         logger.info(f'ℹ️ Airsoft {gender}: тренировка отменена/нет — опрос не шлём')
         return
 
-    # Кто уже ответил (нажал ✅ или ❌) — исключаем
     answered_ids = AirsoftConfirmation.objects.filter(
         week_start=week_start, gender=gender,
     ).values_list('user_id', flat=True)
@@ -115,9 +237,11 @@ def send_airsoft_reminder(gender: str):
                 reply_markup=keyboard,
             )
         except Exception as e:
-            logger.error(f'❌ {user}: {e}')
+            logger.error(f'❌ Airsoft {user}: {e}')
+
 
 def create_weekly_airsoft_trainings():
+    """Пн 09:00 — создаёт AirsoftTraining(pending) на текущую неделю для M и F."""
     today = timezone.localdate()
     week_start = today - timedelta(days=today.weekday())
     for gender in ('M', 'F'):
@@ -136,10 +260,11 @@ def send_airsoft_boys():
 def send_airsoft_girls():
     send_airsoft_reminder('F')
 
+
 def schedule_cancellation_notification(
     gender: str, week_start, cancelled_by_telegram_id: int,
 ):
-    """Ставит job через 10 минут после отмены."""
+    """Ставит DateTrigger через 10 минут после отмены тренировки."""
     if _scheduler is None:
         logger.error('⚠️ Планировщик не запущен — отмена не будет разослана')
         return
@@ -196,22 +321,13 @@ def send_cancellation_notification(
 
     logger.info(f'✅ Уведомление об отмене {gender} отправлено {len(recipients)}')
 
-def deactivate_past_bookings() -> int:
-    """
-    Гасит is_active у записей, дата которых уже прошла.
-    Возвращает количество погашенных записей.
-    """
-    today = timezone.localdate()
-    updated = Booking.objects.filter(
-        is_active=True,
-        date__lt=today,
-    ).update(is_active=False)
-    if updated:
-        logger.info(f'🧹 Погашено прошедших записей: {updated}')
-    return updated
+
+# ============================================================
+# ОТКРЫТИЕ ЗАПИСИ
+# ============================================================
 
 def send_booking_open_notification():
-    """Уведомление в группу: запись на неделю открыта."""
+    """Пн 09:00 — уведомление в группу, что запись открыта."""
     if not GROUP_CHAT_ID:
         return
     week_start = get_current_week_start()
@@ -228,6 +344,11 @@ def send_booking_open_notification():
     except Exception as e:
         logger.error(f'❌ Уведомление об открытии записи: {e}')
 
+
+# ============================================================
+# ЗАПУСК ПЛАНИРОВЩИКА
+# ============================================================
+
 def start_scheduler():
     global _scheduler
     _scheduler = BackgroundScheduler()
@@ -236,24 +357,15 @@ def start_scheduler():
     # Разово при старте — подчистить накопленное
     deactivate_past_bookings()
 
-    # Утренние слоты — одно уведомление в 11:00
+    # Напоминания о слотах — каждые 5 минут (динамически, по группам)
     _scheduler.add_job(
-        send_reminder_group,
-        trigger=CronTrigger(hour=11, minute=0),
-        args=[(time(11, 30), time(11, 45), time(12, 0))],
-        id='reminder_morning',
-        replace_existing=True,
-    )
-    # Вечерний слот — отдельно в 16:40
-    _scheduler.add_job(
-        send_reminder_group,
-        trigger=CronTrigger(hour=16, minute=40),
-        args=[(time(17, 10),)],
-        id='reminder_evening',
+        check_upcoming_slots_and_remind,
+        trigger=CronTrigger(minute='*/5'),
+        id='reminder_checker',
         replace_existing=True,
     )
 
-    # Дневное расписание
+    # Дневное расписание — 17:30
     _scheduler.add_job(
         send_daily_schedule,
         trigger=CronTrigger(hour=17, minute=30),
@@ -261,15 +373,15 @@ def start_scheduler():
         replace_existing=True,
     )
 
-    # Гашение прошедших записей
+    # Гашение прошедших записей — каждые 5 минут
     _scheduler.add_job(
         deactivate_past_bookings,
-        trigger=CronTrigger(hour=0, minute=5),
+        trigger=CronTrigger(minute='*/5'),
         id='deactivate_past_bookings',
         replace_existing=True,
     )
 
-    # Автосоздание airsoft-тренировок — понедельник, вместе с открытием записи
+    # Автосоздание airsoft-тренировок — Пн 09:00
     _scheduler.add_job(
         create_weekly_airsoft_trainings,
         trigger=CronTrigger(day_of_week='mon', hour=BOOKING_OPEN_HOUR, minute=0),
@@ -291,7 +403,7 @@ def start_scheduler():
         replace_existing=True,
     )
 
-    # Уведомление об открытии записи — понедельник
+    # Уведомление об открытии записи — Пн 09:00
     _scheduler.add_job(
         send_booking_open_notification,
         trigger=CronTrigger(day_of_week='mon', hour=BOOKING_OPEN_HOUR, minute=0),
