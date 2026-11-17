@@ -40,6 +40,8 @@ def check_booking_limits(user, dt: date) -> tuple:
             f"⏳ Осталось: {hours} ч {minutes} мин\n\n"
             f"📅 Следующая неделя откроется: {week_start.strftime('%d.%m')} в {BOOKING_OPEN_HOUR}:00"
         )
+    if user.is_staff:
+        return True, "✅ Ограничения пройдены (админ)"
 
     # Проверка: не более 1 записи в день
     today_bookings = Booking.objects.filter(
