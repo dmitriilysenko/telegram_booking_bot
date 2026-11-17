@@ -80,6 +80,16 @@ def confirm_booking_callback(call: CallbackQuery):
     user = get_user_from_callback(call)
     if not user:
         return
+    if user.gender not in ('M', 'F'):
+        bot.edit_message_text(
+            '❌ Запись доступна только участникам секции.\n'
+            'Обратитесь к администратору.',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=get_navigation_keyboard(),
+        )
+        return
+
     parsed = parse_booking_callback_data(call.data)
     if not parsed:
         bot.answer_callback_query(call.id, '❌ Ошибка! Попробуй снова.')

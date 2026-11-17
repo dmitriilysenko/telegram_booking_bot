@@ -12,14 +12,14 @@
 - + отложенные job'ы отмены airsoft (DateTrigger, создаются из callbacks)
 """
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 
-from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
+from django.db.models import Q
 from django_apscheduler.jobstores import DjangoJobStore
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -175,7 +175,6 @@ def deactivate_past_bookings() -> int:
     - date == today и time <= now.time()
     Возвращает количество погашенных.
     """
-    from django.db.models import Q
 
     now = timezone.localtime(timezone.now())
     today = now.date()

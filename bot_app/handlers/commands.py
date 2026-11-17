@@ -182,6 +182,15 @@ def book_command(message: Message):
     if not user:
         return
 
+    if user.gender not in ('M', 'F'):
+        bot.send_message(
+            message.chat.id,
+            '❌ Запись доступна только участникам секции.\n'
+            'Обратитесь к администратору, чтобы он назначил вам группу.',
+            reply_markup=get_navigation_keyboard(),
+        )
+        return
+
     week_start = get_current_week_start()
     week_range = get_week_range(week_start)
     slots = get_slots_for_week(week_start, show_past=False)
@@ -243,9 +252,10 @@ def book_command(message: Message):
         time_str = slot['time'].strftime('%H%M')
         callback_data = f"book_{date_str}_{time_str}"
 
+        places_word = 'место' if slot['free_slots'] == 1 else 'места'
         button_text = (
             f"{slot['day_name_short']} {slot['time'].strftime('%H:%M')} "
-            f"({slot['free_slots']} мест)"
+            f"({slot['free_slots']} {places_word})"
         )
         keyboard.add(InlineKeyboardButton(button_text, callback_data=callback_data))
 
