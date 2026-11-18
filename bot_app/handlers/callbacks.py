@@ -337,7 +337,6 @@ def save_review(message):
     if not text:
         bot.send_message(message.chat.id, '❌ Отзыв не может быть пустым')
         return
-
     review = Review.objects.create(user=user, text=text)
     bot.send_message(message.chat.id, '✅ Спасибо за отзыв!')
 
