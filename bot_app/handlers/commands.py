@@ -46,6 +46,9 @@ def start_command(message: Message):
         }
     )
     if created:
+        if User.objects.filter(display_name=user.display_name).exclude(pk=user.pk).exists():
+            user.display_name = f'{user.display_name} ({user.telegram_id})'
+            user.save(update_fields=('display_name',))
         logger.info(f'Новый пользователь: {user}')
         for staff in User.objects.filter(is_staff=True):
             try:

@@ -58,7 +58,7 @@ class BookingAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'text', 'decision', 'is_active', 'created_at')
+    list_display = ('id', 'user', 'text', 'decision', 'is_active', 'created_date')
     list_filter = ('is_active', 'created_at')
     search_fields = ('user__display_name', 'text', 'decision')
     list_editable = ('is_active',)
@@ -72,6 +72,9 @@ class ReviewAdmin(admin.ModelAdmin):
             'fields': ('decision', 'is_active'),
         }),
     )
+    @admin.display(description='Дата', ordering='created_at')
+    def created_date(self, obj):
+        return obj.created_at.strftime('%d.%m.%Y')
 
 
 @admin.register(AirsoftTraining)

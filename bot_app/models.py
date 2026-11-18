@@ -34,6 +34,13 @@ class User(models.Model):
     class Meta:
         verbose_name = "Участник"
         verbose_name_plural = "Участники"
+        constraints = (
+            models.UniqueConstraint(
+                fields=['display_name'],
+                condition=~models.Q(display_name=''),
+                name='unique_nonempty_display_name',
+            ),
+        )
 
 
 class Booking(models.Model):

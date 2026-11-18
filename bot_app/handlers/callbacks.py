@@ -330,7 +330,6 @@ def review_callback(call: CallbackQuery):
 
 
 def save_review(message):
-    """Сохраняет отзыв из следующего сообщения."""
     user = get_user_from_message(message)
     if not user:
         return
@@ -338,8 +337,21 @@ def save_review(message):
     if not text:
         bot.send_message(message.chat.id, '❌ Отзыв не может быть пустым')
         return
-    Review.objects.create(user=user, text=text)
+
+    review = Review.objects.create(user=user, text=text)
     bot.send_message(message.chat.id, '✅ Спасибо за отзыв!')
+
+    admin_text = (
+        f'📝 *Новый отзыв*\n\n'
+        f'👤 {user.display_name} (@{user.username or "—"})\n'
+        f'🕐 {review.created_at:%d.%m.%Y %H:%M}\n\n'
+        f'{text}'
+    )
+    for staff in User.objects.filter(is_staff=True):
+        try:
+            bot.send_message(staff.telegram_id, admin_text)
+        except Exception as e:
+            logger.error(f'❌ Уведомление админу {staff.telegram_id}: {e}')
 
 
 # --- ПРОФИЛЬ ---
@@ -361,6 +373,12 @@ def save_display_name(message):
     name = message.text.strip()
     if not name:
         bot.send_message(message.chat.id, '❌ Имя не может быть пустым')
+        return
+    if User.objects.filter(display_name=name).exclude(pk=user.pk).exists():
+        bot.send_message(
+            message.chat.id,
+            f'❌ Имя «{name}» уже занято. Выбери другое.',
+        )
         return
     user.display_name = name
     user.save()
