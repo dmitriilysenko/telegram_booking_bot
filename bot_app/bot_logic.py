@@ -12,8 +12,8 @@ def run_bot():
     """Запускает бота"""
     logger.info('🚀 Бот запущен!')
     scheduler = start_scheduler()
-    logger.info(f'📊 Загружено {len(VALID_SLOTS)} слотов')
-    logger.info(f'👥 Максимум человек на слот: {MAX_PEOPLE_PER_SLOT}')
+    logger.info(f'📊 Загружено {len(VALID_SLOTS)} интервалов')
+    logger.info(f'👥 Максимум человек на интервал: {MAX_PEOPLE_PER_SLOT}')
 
     if GROUP_CHAT_ID:
         logger.info(f'📢 Уведомления в группу: включены (ID: {GROUP_CHAT_ID})')

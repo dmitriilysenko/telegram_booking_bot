@@ -36,7 +36,7 @@ def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list
     result = []
 
     for day, time_obj in VALID_SLOTS:
-        # 1. Сначала вычисляем дату слота
+        # 1. Сначала вычисляем дату интервала
         days_ahead = day - week_start.weekday()
         if days_ahead < 0:
             days_ahead += 7
@@ -53,10 +53,10 @@ def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list
         ).select_related('user')
         booked_count = bookings.count()
 
-        # 4. Скрыт ли слот на эту дату?
+        # 4. Скрыт ли интервал на эту дату?
         is_hidden = (dt, time_obj) in HIDDEN_SLOTS
 
-        # 5. Скрытый слот считаем недоступным, даже если есть места
+        # 5. Скрытый интервал считаем недоступным, даже если есть места
         is_full = booked_count >= MAX_PEOPLE_PER_SLOT or is_hidden
         free_slots = 0 if is_hidden else (MAX_PEOPLE_PER_SLOT - booked_count)
 
@@ -81,7 +81,7 @@ def get_slots_for_week(week_start: date = None, show_past: bool = False) -> list
 def format_schedule_text(week_start: date = None, show_past: bool = False) -> str:
     """
     Возвращает текст расписания на текущую (или указанную) неделю.
-    show_past=False — только будущие слоты (по умолчанию, для кнопки и уведомлений).
+    show_past=False — только будущие интервалы (по умолчанию, для кнопки и уведомлений).
     show_past=True  — включая прошедшие (для админских/архивных задач).
     """
     if week_start is None:
@@ -92,7 +92,7 @@ def format_schedule_text(week_start: date = None, show_past: bool = False) -> st
     if not slots:
         return (
             f'📅 *Расписание на неделю {week_range}*\n\n'
-            f'На этой неделе больше нет доступных слотов.'
+            f'На этой неделе больше нет доступных интервалов.'
         )
 
     grouped = {}

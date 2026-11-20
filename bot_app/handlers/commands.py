@@ -124,7 +124,7 @@ def main_command(message: Message):
 /main — эта справка
 
 Правила записи:
-  • Количество мест: 2 человека на слот
+  • Количество мест: 2 человека на интервал
   • Запись открывается в понедельник в {BOOKING_OPEN_HOUR}:00
   • Нельзя записаться на прошлое
   • 1 запись в день
@@ -146,7 +146,7 @@ def schedule_command(message: Message):
 
     if not slots:
         text = (
-            f"📅 На неделе {week_range} больше нет доступных слотов.\n\n"
+            f"📅 На неделе {week_range} больше нет доступных интервалов.\n\n"
             f"Следующая неделя откроется в понедельник в {BOOKING_OPEN_HOUR}:00."
         )
         keyboard = get_navigation_keyboard()
@@ -181,7 +181,7 @@ def schedule_command(message: Message):
 
 @bot.message_handler(commands=['book'])
 def book_command(message: Message):
-    """Начинает процесс записи — показывает доступные слоты"""
+    """Начинает процесс записи — показывает доступные интервалы"""
     user = get_user_from_message(message)
     if not user:
         return
@@ -270,7 +270,7 @@ def book_command(message: Message):
 
     bot.send_message(
         message.chat.id,
-        f"📝 Выбери слот для записи на неделю {week_range}:",
+        f"📝 Выбери интервал для записи на неделю {week_range}:",
         reply_markup=keyboard
     )
 

@@ -11,9 +11,7 @@ from django.utils import timezone
 from bot_app.models import (
     Booking, User, Review, AirsoftConfirmation, AirsoftTraining
 )
-from bot_app.core import (
-    bot, logger, FakeMessage, get_trainers,
-)
+from bot_app.core import bot, logger, FakeMessage
 from bot_app.config import (
     MAX_PEOPLE_PER_SLOT,
     WEEKDAY_NAMES,
@@ -64,7 +62,7 @@ def book_from_schedule_callback(call: CallbackQuery):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'cancel_book')
 def cancel_book_callback(call: CallbackQuery):
-    """Отмена выбора слота."""
+    """Отмена выбора интервала."""
     bot.answer_callback_query(call.id)
     bot.edit_message_text(
         '❌ Запись отменена.',
@@ -75,7 +73,7 @@ def cancel_book_callback(call: CallbackQuery):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('book_'))
 def confirm_booking_callback(call: CallbackQuery):
-    """Выбор слота (book_YYYYMMDD_HHMM) -> проверки -> Booking."""
+    """Выбор интервала (book_YYYYMMDD_HHMM) -> проверки -> Booking."""
     bot.answer_callback_query(call.id, '⏳ Обрабатываю запрос...')
     user = get_user_from_callback(call)
     if not user:
@@ -100,19 +98,19 @@ def confirm_booking_callback(call: CallbackQuery):
 
     if not is_valid_slot(day, time_obj):
         bot.edit_message_text(
-            f'❌ Слот {WEEKDAY_NAMES[day]} {time_obj.strftime("%H:%M")} не существует!',
+            f'❌ Интервал {WEEKDAY_NAMES[day]} {time_obj.strftime("%H:%M")} не существует!',
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=get_navigation_keyboard(),
         )
         return
 
-    # Проверка: слот ещё не наступил
+    # Проверка: интервал ещё не наступил
     slot_dt = timezone.make_aware(datetime.combine(dt, time_obj))
     now = timezone.localtime(timezone.now())
     if slot_dt <= now:
         bot.edit_message_text(
-            f'❌ Слот {time_obj.strftime("%H:%M")} уже прошёл.',
+            f'❌ Интервал {time_obj.strftime("%H:%M")} уже прошёл.',
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=get_navigation_keyboard(),

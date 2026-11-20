@@ -43,12 +43,12 @@ BOOKING_OPEN_HOUR = 9
 
 
 def is_valid_slot(day: int, time_obj: time) -> bool:
-    """Проверяет, существует ли такой слот в конфигурации."""
+    """Проверяет, существует ли такой интервал в конфигурации."""
     return (day, time_obj) in VALID_SLOTS
 
 def get_available_slots_text() -> str:
     """
-    Возвращает форматированный текст со списком всех слотов
+    Возвращает форматированный текст со списком всех интервалов
     Используется для подсказок пользователю при ошибках
     """
 
@@ -62,9 +62,9 @@ def get_available_slots_text() -> str:
 
 def get_slots_summary() -> str:
     return (
-        f'Всего слотов: {len(VALID_SLOTS)}\n'
+        f'Всего интервалов: {len(VALID_SLOTS)}\n'
         f'Дней: {len(SLOTS_BY_DAY)}\n'
-        f'Максимум мест на слот: {MAX_PEOPLE_PER_SLOT}'
+        f'Максимум мест на интервал: {MAX_PEOPLE_PER_SLOT}'
     )
 
 def validate_config():
@@ -75,7 +75,7 @@ def validate_config():
             raise ValueError(f'❌ День {day} отсутствует в WEEKDAY_NAMES')
     unique = set(VALID_SLOTS)
     if len(unique) != len(VALID_SLOTS):
-        raise ValueError('❌ Дубликаты слотов')
+        raise ValueError('❌ Дубликаты интервалов')
 
 # Автоматическая проверка при импорте
 validate_config()
