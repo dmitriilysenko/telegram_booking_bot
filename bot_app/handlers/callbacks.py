@@ -49,7 +49,7 @@ def get_user_from_callback(call: CallbackQuery):
         return user
 
     logger.warning(f'Пользователь не найден: {telegram_id}')
-    bot.send_message(call.message.chat.id, '❌ Ты не зарегистрирован! Напиши /start')
+    bot.send_message(call.message.chat.id, '❌ Ты не зарегистрирован(а)! Напиши /start')
     return None
 
 @bot.callback_query_handler(func=lambda call: call.data == 'book')
@@ -80,6 +80,7 @@ def confirm_booking_callback(call: CallbackQuery):
     user = get_user_from_callback(call)
     if not user:
         return
+    fem_last = 'а' if user.gender == 'F' else ''
     if user.gender not in ('M', 'F'):
         bot.edit_message_text(
             '❌ Запись доступна только участникам секции.\n'
@@ -123,7 +124,7 @@ def confirm_booking_callback(call: CallbackQuery):
         user=user, date=dt, time=time_obj, is_active=True
     ).exists():
         bot.edit_message_text(
-            f'❌ Ты уже записан на {WEEKDAY_NAMES[day]} {time_obj.strftime("%H:%M")}!',
+            f'❌ Ты уже записан{fem_last} на {WEEKDAY_NAMES[day]} {time_obj.strftime("%H:%M")}!',
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=get_navigation_keyboard(),
@@ -165,8 +166,9 @@ def confirm_booking_callback(call: CallbackQuery):
             InlineKeyboardButton('📅 Расписание', callback_data='nav_schedule'),
         )
         keyboard.add(InlineKeyboardButton("🏠 Главное меню", callback_data="nav_main"))
+        verb = 'записался' if user.gender == 'M' else 'записалась'
         bot.edit_message_text(
-            f'✅ Ты записался!\n\n'
+            f'✅ Ты {verb}!\n\n'
             f'📅 {WEEKDAY_NAMES[day]} {dt.strftime("%d.%m")}\n'
             f'⏰ {time_obj.strftime("%H:%M")}\n\n'
             f'Мест осталось: {MAX_PEOPLE_PER_SLOT - booked_count - 1}',

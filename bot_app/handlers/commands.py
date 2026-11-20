@@ -26,10 +26,11 @@ def get_user_by_telegram_id(telegram_id: int):
 def get_user_from_message(message: Message):
     """Получает пользователя из сообщения, если он зарегистрирован"""
     user = get_user_by_telegram_id(message.from_user.id)
+    verb = 'зарегистрирован' if user.gender == 'M' else 'зарегистрирована'
     if not user:
         bot.send_message(
             message.chat.id,
-            "❌ Ты не зарегистрирован! Напиши /start"
+            f'❌ Ты не {verb}! Напиши /start'
         )
         return None
     return user
@@ -61,7 +62,7 @@ def start_command(message: Message):
                 logger.error(f'Уведомление админу: {e}')
         text = (
             f'👋 Привет, {user.first_name}!\n'
-            'Ты зарегистрирован. Используй кнопки ниже:'
+            'Ты зарегистрирован(а). Используй кнопки ниже:'
         )
     else:
         text = f'👋 С возвращением, {user.first_name}!'
@@ -113,7 +114,7 @@ def reviews_command(message: Message):
 def main_command(message: Message):
     """Показывает список доступных команд"""
     text = f"""
-🤖 Доступные команды:
+Доступные команды:
 
 /start — регистрация в системе
 /schedule — посмотреть расписание
@@ -122,8 +123,8 @@ def main_command(message: Message):
 /cancel — отменить последнюю запись
 /main — эта справка
 
-📌 Количество мест: 2 человека на слот
-📌 Ограничения:
+Правила записи:
+  • Количество мест: 2 человека на слот
   • Запись открывается в понедельник в {BOOKING_OPEN_HOUR}:00
   • Нельзя записаться на прошлое
   • 1 запись в день
